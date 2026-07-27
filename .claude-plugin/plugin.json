@@ -1,0 +1,9 @@
+{
+  "name": "video-create",
+  "version": "0.1.0",
+  "description": "通过分阶段合同完成参考学习、视频创作和确定性剪辑执行。",
+  "author": {
+    "name": "video-create"
+  },
+  "mcpServers": "./.mcp.json"
+}

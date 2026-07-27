@@ -14,9 +14,17 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
     source_root = tmp_path / "source"
     source_root.mkdir()
     shutil.copy2(project_root / "pyproject.toml", source_root / "pyproject.toml")
+    shutil.copy2(project_root / ".mcp.json", source_root / ".mcp.json")
+    shutil.copytree(project_root / ".codex-plugin", source_root / ".codex-plugin")
+    shutil.copytree(project_root / ".claude-plugin", source_root / ".claude-plugin")
     shutil.copytree(
         project_root / "components",
         source_root / "components",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    shutil.copytree(
+        project_root / "video_create_plugin",
+        source_root / "video_create_plugin",
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
     wheel_dir = tmp_path / "wheel"

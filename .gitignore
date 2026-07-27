@@ -5,6 +5,7 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 build/
+dist/
 .env
 
 output/analysis_520/

@@ -11,6 +11,7 @@ dependencies = [
     "beautifulsoup4>=4.12,<5",
     "fastapi>=0.115,<1",
     "httpx>=0.27,<1",
+    "mcp>=1,<2",
     "playwright>=1.60,<2",
     "pydantic>=2.9,<3",
     "python-multipart>=0.0.20,<1",
@@ -31,12 +32,18 @@ dev = [
 material-acquisition = "components.material_acquisition.__main__:main"
 video-download = "components.video_download.__main__:main"
 video-editor = "components.video_editor.__main__:main"
+video-create-mcp = "video_create_plugin.mcp.server:main"
 
 [tool.setuptools.packages.find]
-include = ["components*"]
+include = ["components*", "video_create_plugin*"]
 
 [tool.setuptools.package-data]
 "components.video_editor" = ["web/*"]
+
+[tool.setuptools.data-files]
+"share/video-create" = [".mcp.json"]
+"share/video-create/.codex-plugin" = [".codex-plugin/plugin.json"]
+"share/video-create/.claude-plugin" = [".claude-plugin/plugin.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -51,4 +58,9 @@ select = ["E", "F", "I", "UP"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-packages = ["components.material_acquisition", "components.video_download", "components.video_editor"]
+packages = [
+    "components.material_acquisition",
+    "components.video_download",
+    "components.video_editor",
+    "video_create_plugin",
+]

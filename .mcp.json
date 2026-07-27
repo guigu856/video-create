@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "video-create": {
+      "command": "uv",
+      "args": [
+        "run",
+        "video-create-mcp"
+      ],
+      "cwd": "."
+    }
+  }
+}
