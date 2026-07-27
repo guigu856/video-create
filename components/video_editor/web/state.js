@@ -86,33 +86,6 @@ export function visibleClips(project, seconds) {
   );
 }
 
-const TRANSFORM_PROPS = ["x", "y", "width", "height", "rotation", "opacity"];
-
-function interpolateProperty(points, base, localTime) {
-  if (localTime <= points[0][0]) return base;
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const [t0, v0] = points[i];
-    const [t1, v1] = points[i + 1];
-    if (localTime < t1) return v0 + ((v1 - v0) * (localTime - t0)) / (t1 - t0);
-  }
-  return points[points.length - 1][1];
-}
-
-export function transformAt(clip, seconds) {
-  const base = clip.transform;
-  const keyframes = clip.keyframes ?? [];
-  if (keyframes.length === 0) return base;
-  const localTime = seconds - clip.timeline_start;
-  const result = { ...base };
-  for (const prop of TRANSFORM_PROPS) {
-    const points = keyframes
-      .filter((kf) => kf[prop] != null)
-      .map((kf) => [kf.time, kf[prop]]);
-    if (points.length >= 2) result[prop] = interpolateProperty(points, base[prop], localTime);
-  }
-  return result;
-}
-
 export function formatTimecode(seconds) {
   const safeSeconds = Math.max(0, Number(seconds) || 0);
   const minutes = Math.floor(safeSeconds / 60);

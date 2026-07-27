@@ -16,81 +16,6 @@ const DEFAULT_TRACKS = [
 ];
 const LAST_PROJECT_KEY = "video-create:last-project-id";
 
-const FILTER_DEFAULTS = {
-  eq: { saturation: 1.3 },
-  blur: { sigma: 2 },
-  unsharp: { lms: 5, las: 5 },
-  hue: { s: 1.3 },
-  vignette: { angle: "PI/5" },
-  noise: { alls: 15 },
-};
-const FILTER_NAMES = {
-  lut: "LUT 调色",
-  eq: "色彩平衡",
-  curves: "曲线",
-  blur: "模糊",
-  unsharp: "锐化",
-  hue: "色相/饱和度",
-  vignette: "暗角",
-  noise: "噪点",
-};
-
-function rounded3(value) {
-  return Math.round(value * 1000) / 1000;
-}
-
-const ANIMATION_PRESETS = {
-  "fade-in"(clip) {
-    const end = rounded3(Math.min(0.5, clip.duration / 2));
-    return [
-      { time: 0, opacity: 0 },
-      { time: end, opacity: clip.transform.opacity },
-    ];
-  },
-  "fade-out"(clip) {
-    const start = rounded3(Math.max(0, clip.duration - Math.min(0.5, clip.duration / 2)));
-    return [
-      { time: start, opacity: clip.transform.opacity },
-      { time: rounded3(clip.duration), opacity: 0 },
-    ];
-  },
-  "zoom-in"(clip) {
-    const { x, y, width, height } = clip.transform;
-    const end = rounded3(Math.min(0.5, clip.duration / 2));
-    const smallW = width / 2;
-    const smallH = height / 2;
-    return [
-      {
-        time: 0,
-        x: rounded3(x + (width - smallW) / 2),
-        y: rounded3(y + (height - smallH) / 2),
-        width: rounded3(smallW),
-        height: rounded3(smallH),
-      },
-      { time: end, x: rounded3(x), y: rounded3(y), width: rounded3(width), height: rounded3(height) },
-    ];
-  },
-  "zoom-out"(clip) {
-    const { x, y, width, height } = clip.transform;
-    const start = rounded3(Math.max(0, clip.duration - Math.min(0.5, clip.duration / 2)));
-    const smallW = width / 2;
-    const smallH = height / 2;
-    return [
-      { time: start, x: rounded3(x), y: rounded3(y), width: rounded3(width), height: rounded3(height) },
-      {
-        time: rounded3(clip.duration),
-        x: rounded3(x + (width - smallW) / 2),
-        y: rounded3(y + (height - smallH) / 2),
-        width: rounded3(smallW),
-        height: rounded3(smallH),
-      },
-    ];
-  },
-  clear() {
-    return [];
-  },
-};
-
 const elements = {
   projectName: document.querySelector("#project-name"),
   saveState: document.querySelector("#save-state"),
@@ -114,11 +39,6 @@ const elements = {
   inspectorEmpty: document.querySelector("#inspector-empty"),
   inspector: document.querySelector("#clip-inspector"),
   textFields: document.querySelector("#text-fields"),
-  animationFields: document.querySelector("#animation-fields"),
-  keyframeStatus: document.querySelector("#keyframe-status"),
-  transitionFields: document.querySelector("#transition-fields"),
-  filterFields: document.querySelector("#filter-fields"),
-  filterList: document.querySelector("#filter-list"),
   volumeValue: document.querySelector("#volume-value"),
   deleteClip: document.querySelector("#delete-clip"),
   splitClip: document.querySelector("#split-clip"),
@@ -325,10 +245,6 @@ function renderInspector(project) {
   const { track, clip } = selected;
   elements.selectionKind.textContent = `${track.name} · ${clip.kind === "text" ? "文字" : "媒体"}`;
   elements.textFields.hidden = clip.kind !== "text";
-  const isMedia = clip.kind === "media";
-  elements.animationFields.hidden = !isMedia;
-  elements.transitionFields.hidden = !isMedia;
-  elements.filterFields.hidden = !isMedia;
   const values = {
     start: clip.timeline_start,
     duration: clip.duration,
@@ -347,119 +263,6 @@ function renderInspector(project) {
     if (input) input.value = String(value);
   }
   elements.volumeValue.textContent = `${Math.round(clip.volume * 100)}%`;
-  if (isMedia) {
-    const keyframeCount = (clip.keyframes ?? []).length;
-    elements.keyframeStatus.textContent = keyframeCount
-      ? `${keyframeCount} 个关键帧`
-      : "无关键帧";
-    elements.inspector.elements.namedItem("transition_effect").value =
-      clip.transition_in?.effect ?? "";
-    elements.inspector.elements.namedItem("transition_duration").value = String(
-      clip.transition_in?.duration ?? 0.5,
-    );
-    renderFilterList(clip);
-  }
-}
-
-function renderFilterList(clip) {
-  elements.filterList.replaceChildren();
-  (clip.filters ?? []).forEach((filter, index) => {
-    const row = document.createElement("div");
-    row.className = "filter-row";
-    const label = document.createElement("span");
-    label.textContent = FILTER_NAMES[filter.kind] ?? filter.kind;
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.textContent = "×";
-    remove.title = "移除滤镜";
-    remove.addEventListener("click", () => removeFilter(index));
-    row.append(label, remove);
-    elements.filterList.append(row);
-  });
-  elements.inspector.elements.namedItem("add_filter").value = "";
-}
-
-function removeFilter(index) {
-  const selected = findClip(state.value.project, state.value.selectedClipId);
-  if (!selected) return;
-  const filters = [...(selected.clip.filters ?? [])];
-  filters.splice(index, 1);
-  void applyCommands([
-    {
-      type: "clip.update",
-      track_id: selected.track.id,
-      clip_id: selected.clip.id,
-      changes: { filters },
-    },
-  ]);
-}
-
-function addFilter(kind) {
-  const selected = findClip(state.value.project, state.value.selectedClipId);
-  if (!selected || !kind) return;
-  const filters = [...(selected.clip.filters ?? []), { kind, params: { ...FILTER_DEFAULTS[kind] } }];
-  void applyCommands([
-    {
-      type: "clip.update",
-      track_id: selected.track.id,
-      clip_id: selected.clip.id,
-      changes: { filters },
-    },
-  ]);
-}
-
-function applyAnimationPreset(presetName) {
-  const selected = findClip(state.value.project, state.value.selectedClipId);
-  if (!selected) return;
-  const generator = ANIMATION_PRESETS[presetName];
-  if (!generator) return;
-  void applyCommands([
-    {
-      type: "clip.update",
-      track_id: selected.track.id,
-      clip_id: selected.clip.id,
-      changes: { keyframes: generator(selected.clip) },
-    },
-  ]);
-}
-
-function applyTransition(effect) {
-  const project = state.value.project;
-  const selected = findClip(project, state.value.selectedClipId);
-  if (!selected) return;
-  const { track, clip } = selected;
-  const durationInput = elements.inspector.elements.namedItem("transition_duration");
-  const duration = Math.max(0.1, Number(durationInput.value) || 0.5);
-  if (!effect) {
-    void applyCommands([
-      {
-        type: "clip.update",
-        track_id: track.id,
-        clip_id: clip.id,
-        changes: { transition_in: null },
-      },
-    ]);
-    return;
-  }
-  const clipIndex = track.clips.findIndex((item) => item.id === clip.id);
-  const previous = clipIndex > 0 ? track.clips[clipIndex - 1] : null;
-  if (!previous) {
-    toast("轨道首个片段无法添加入场转场", true);
-    elements.inspector.elements.namedItem("transition_effect").value = "";
-    return;
-  }
-  const timelineStart = rounded3(previous.timeline_start + previous.duration - duration);
-  void applyCommands([
-    {
-      type: "clip.update",
-      track_id: track.id,
-      clip_id: clip.id,
-      changes: {
-        timeline_start: timelineStart,
-        transition_in: { effect, duration },
-      },
-    },
-  ]);
 }
 
 function renderUi() {
@@ -583,7 +386,6 @@ function splitSelectedClip() {
 function updateInspectorField(event) {
   const input = event.target;
   if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) return;
-  if (input.name === "transition_duration") return;
   const selected = findClip(state.value.project, state.value.selectedClipId);
   if (!selected) return;
   if (input.name === "text" && selected.clip.kind !== "text") return;
@@ -824,20 +626,6 @@ elements.previewScale.addEventListener("change", () => {
 elements.inspector.addEventListener("change", updateInspectorField);
 elements.inspector.elements.namedItem("volume").addEventListener("input", (event) => {
   elements.volumeValue.textContent = `${Math.round(Number(event.target.value) * 100)}%`;
-});
-for (const button of document.querySelectorAll("[data-animation]")) {
-  button.addEventListener("click", () => applyAnimationPreset(button.dataset.animation));
-}
-elements.inspector.elements.namedItem("transition_effect").addEventListener("change", (event) => {
-  applyTransition(event.target.value);
-});
-elements.inspector.elements.namedItem("transition_duration").addEventListener("change", () => {
-  const selected = findClip(state.value.project, state.value.selectedClipId);
-  const effect = selected?.clip.transition_in?.effect;
-  if (effect) applyTransition(effect);
-});
-elements.inspector.elements.namedItem("add_filter").addEventListener("change", (event) => {
-  addFilter(event.target.value);
 });
 elements.deleteClip.addEventListener("click", deleteSelectedClip);
 elements.deleteSelected.addEventListener("click", deleteSelectedClip);

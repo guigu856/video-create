@@ -23,13 +23,10 @@ from .models import (
     Canvas,
     Clip,
     ClipCreate,
-    ClipFilter,
     EditorProject,
-    Keyframe,
     MediaMetadata,
     Track,
     Transform,
-    Transition,
 )
 from .service import VideoEditorService
 from .storage import ProjectStorage
@@ -44,14 +41,12 @@ __all__ = [
     "ClipAddCommand",
     "ClipCreate",
     "ClipDeleteCommand",
-    "ClipFilter",
     "ClipSplitCommand",
     "ClipUpdate",
     "ClipUpdateCommand",
     "CommandBatch",
     "EditorCommand",
     "EditorProject",
-    "Keyframe",
     "MediaMetadata",
     "ProjectStorage",
     "ProjectUpdate",
@@ -63,7 +58,6 @@ __all__ = [
     "TrackUpdate",
     "TrackUpdateCommand",
     "Transform",
-    "Transition",
     "VideoEditorError",
     "VideoEditorService",
 ]

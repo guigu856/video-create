@@ -4,16 +4,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
-from .models import (
-    AssetCreate,
-    Canvas,
-    ClipCreate,
-    ClipFilter,
-    EditorModel,
-    Keyframe,
-    Transform,
-    Transition,
-)
+from .models import AssetCreate, Canvas, ClipCreate, EditorModel, Transform
 
 
 class ProjectUpdate(EditorModel):
@@ -46,9 +37,6 @@ class ClipUpdate(EditorModel):
     asset_id: str | None = Field(default=None, min_length=1)
     text: str | None = Field(default=None, min_length=1)
     transform: Transform | None = None
-    keyframes: list[Keyframe] | None = None
-    transition_in: Transition | None = None
-    filters: list[ClipFilter] | None = None
     volume: float | None = Field(default=None, ge=0)
 
     @field_validator("asset_id", "text")
@@ -65,7 +53,7 @@ class ClipUpdate(EditorModel):
     def contains_a_change(self) -> Self:
         if not self.model_fields_set:
             raise ValueError("clip.update 必须提供变更")
-        nullable_sources = {"asset_id", "text", "transition_in"}
+        nullable_sources = {"asset_id", "text"}
         if any(
             getattr(self, field) is None
             for field in self.model_fields_set - nullable_sources

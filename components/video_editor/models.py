@@ -75,78 +75,6 @@ class Transform(EditorModel):
     opacity: float = Field(default=1, ge=0, le=1)
 
 
-_TRANSFORM_PROPS = ("x", "y", "width", "height", "rotation", "opacity")
-
-
-class Keyframe(EditorModel):
-    """单个关键帧：time 为 clip 本地时间（0 = clip 起点）。"""
-
-    time: float = Field(ge=0)
-    x: float | None = None
-    y: float | None = None
-    width: float | None = Field(default=None, gt=0)
-    height: float | None = Field(default=None, gt=0)
-    rotation: float | None = None
-    opacity: float | None = Field(default=None, ge=0, le=1)
-
-    @model_validator(mode="after")
-    def at_least_one_property(self) -> Self:
-        if all(getattr(self, prop) is None for prop in _TRANSFORM_PROPS):
-            raise ValueError("关键帧必须指定至少一个属性")
-        return self
-
-
-class Transition(EditorModel):
-    """clip 入场转场：与前驱 clip 的重叠过渡。"""
-
-    effect: str = Field(default="fade", pattern=r"^[a-z]+$")
-    duration: float = Field(gt=0, le=5)
-
-
-_FILTER_PARAM_SPECS: dict[str, dict[str, type | tuple[type, ...]]] = {
-    "lut": {"file": str},
-    "eq": {
-        "brightness": (int, float),
-        "contrast": (int, float),
-        "saturation": (int, float),
-        "gamma": (int, float),
-    },
-    "curves": {"r": str, "g": str, "b": str},
-    "blur": {"sigma": (int, float)},
-    "unsharp": {"lms": (int, float), "las": (int, float)},
-    "hue": {"h": (int, float), "s": (int, float)},
-    "vignette": {"angle": (str, int, float)},
-    "noise": {"alls": (int, float), "allf": str},
-}
-
-
-def _validate_filter_params(kind: str, params: dict[str, str | float | int]) -> None:
-    spec = _FILTER_PARAM_SPECS[kind]
-    unknown = set(params) - set(spec)
-    if unknown:
-        raise ValueError(f"滤镜 {kind} 不支持参数：{sorted(unknown)}")
-    if kind == "lut" and "file" not in params:
-        raise ValueError("lut 滤镜必须提供 file 参数")
-    for name, value in params.items():
-        expected = spec[name]
-        if not isinstance(value, expected) or isinstance(value, bool):
-            raise ValueError(f"滤镜 {kind} 参数 {name} 类型不符")
-
-
-class ClipFilter(EditorModel):
-    """作用于单个 clip 的视觉滤镜。"""
-
-    kind: Literal[
-        "lut", "eq", "curves", "blur", "unsharp", "hue", "vignette", "noise"
-    ]
-    params: dict[str, str | float | int] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def params_match_kind(self) -> Self:
-        _validate_filter_params(self.kind, self.params)
-        return self
-
-
 class ClipCreate(EditorModel):
     kind: Literal["media", "text"]
     timeline_start: float = Field(ge=0)
@@ -155,9 +83,6 @@ class ClipCreate(EditorModel):
     asset_id: str | None = Field(default=None, min_length=1)
     text: str | None = Field(default=None, min_length=1)
     transform: Transform = Field(default_factory=Transform)
-    keyframes: list[Keyframe] = Field(default_factory=list)
-    transition_in: Transition | None = None
-    filters: list[ClipFilter] = Field(default_factory=list)
     volume: float = Field(default=1, ge=0)
 
     @field_validator("asset_id", "text")
@@ -179,26 +104,6 @@ class ClipCreate(EditorModel):
             raise ValueError("文本片段必须且只能提供 text")
         return self
 
-    @model_validator(mode="after")
-    def keyframes_are_ordered(self) -> Self:
-        if not self.keyframes:
-            return self
-        times = [keyframe.time for keyframe in self.keyframes]
-        if times != sorted(times) or len(set(times)) != len(times):
-            raise ValueError("关键帧必须按 time 严格升序")
-        if times[-1] > self.duration + 1e-9:
-            raise ValueError("关键帧时间不能超出 clip 时长")
-        return self
-
-    @model_validator(mode="after")
-    def text_clip_restrictions(self) -> Self:
-        if self.kind == "text":
-            if self.keyframes:
-                raise ValueError("文本片段不支持关键帧")
-            if self.transition_in is not None:
-                raise ValueError("文本片段不支持转场")
-        return self
-
 
 class Clip(ClipCreate):
     id: str = Field(min_length=1)
@@ -217,35 +122,6 @@ class Track(EditorModel):
         if not resolved:
             raise ValueError("轨道名称不能为空")
         return resolved
-
-    @model_validator(mode="after")
-    def transitions_are_consistent(self) -> Self:
-        if self.media_domain != "visual":
-            return self
-        for index, clip in enumerate(self.clips):
-            if clip.transition_in is None:
-                continue
-            if index == 0:
-                raise ValueError("轨道首个片段不能设置入场转场")
-            previous = self.clips[index - 1]
-            transition = clip.transition_in
-            if previous.kind != "media":
-                raise ValueError("转场前驱片段必须是媒体片段")
-            if clip.keyframes or previous.keyframes:
-                raise ValueError("转场片段及其前驱片段不支持关键帧")
-            if transition.duration > previous.duration + 1e-9:
-                raise ValueError("转场时长不能超出前驱片段时长")
-            expected_start = (
-                previous.timeline_start + previous.duration - transition.duration
-            )
-            if abs(clip.timeline_start - expected_start) > 1e-3:
-                raise ValueError("转场片段必须与前驱片段重叠恰好一个转场时长")
-            if (
-                clip.transform.width != previous.transform.width
-                or clip.transform.height != previous.transform.height
-            ):
-                raise ValueError("转场双方片段尺寸必须一致")
-        return self
 
 
 class EditorProject(EditorModel):
