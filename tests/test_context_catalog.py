@@ -1,8 +1,12 @@
+import asyncio
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
 from video_create_plugin.context.catalog import CatalogDocument, ContextCatalog
 from video_create_plugin.errors import PluginError
@@ -66,3 +70,35 @@ def test_catalog_schema_matches_model() -> None:
     checked_in = json.loads((ROOT / "schemas/catalog.schema.json").read_text(encoding="utf-8"))
 
     assert checked_in == CatalogDocument.model_json_schema()
+
+
+def test_stdio_resources_list_and_read_context() -> None:
+    async def verify_resources() -> None:
+        parameters = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "video_create_plugin.mcp.server"],
+            cwd=ROOT,
+        )
+        async with stdio_client(parameters) as (read_stream, write_stream):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                listed = await session.list_resources()
+                uris = {str(resource.uri) for resource in listed.resources}
+                assert uris == {
+                    "video-create://catalog",
+                    "video-create://rules/main-agent",
+                    "video-create://skills/video-task-router",
+                    "video-create://schemas/common",
+                    "video-create://schemas/catalog",
+                }
+
+                catalog = await session.read_resource("video-create://catalog")
+                catalog_text = catalog.contents[0].text
+                assert json.loads(catalog_text)["schema_version"] == "1.0"
+
+                rule = await session.read_resource("video-create://rules/main-agent")
+                assert rule.contents[0].text == (ROOT / "rules/main-agent.md").read_text(
+                    encoding="utf-8"
+                )
+
+    asyncio.run(verify_resources())

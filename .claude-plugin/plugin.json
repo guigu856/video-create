@@ -5,5 +5,6 @@
   "author": {
     "name": "video-create"
   },
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "skills": "./skills/"
 }

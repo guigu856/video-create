@@ -20,6 +20,7 @@ def test_host_manifests_share_plugin_identity() -> None:
     assert codex["name"] == claude["name"] == "video-create"
     assert codex["version"] == claude["version"] == __version__
     assert codex["mcpServers"] == claude["mcpServers"] == "./.mcp.json"
+    assert codex["skills"] == claude["skills"] == "./skills/"
     assert mcp_config["mcpServers"]["video-create"]["args"] == [
         "run",
         "video-create-mcp",

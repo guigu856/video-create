@@ -17,6 +17,9 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
     shutil.copy2(project_root / ".mcp.json", source_root / ".mcp.json")
     shutil.copytree(project_root / ".codex-plugin", source_root / ".codex-plugin")
     shutil.copytree(project_root / ".claude-plugin", source_root / ".claude-plugin")
+    shutil.copytree(project_root / "rules", source_root / "rules")
+    shutil.copytree(project_root / "schemas", source_root / "schemas")
+    shutil.copytree(project_root / "skills", source_root / "skills")
     shutil.copytree(
         project_root / "components",
         source_root / "components",
@@ -50,6 +53,14 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
         names = set(archive.namelist())
         assert "components/video_editor/web/index.html" in names
         assert "components/video_editor/web/app.js" in names
+        assert any(name.endswith("share/video-create/rules/main-agent.md") for name in names)
+        assert any(
+            name.endswith("share/video-create/skills/video-task-router/SKILL.md")
+            for name in names
+        )
+        assert any(
+            name.endswith("share/video-create/schemas/catalog.schema.json") for name in names
+        )
         site_packages = tmp_path / "site-packages"
         archive.extractall(site_packages)
 
