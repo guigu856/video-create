@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "CatalogEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "content_id": {
+          "pattern": "^[a-z][a-z0-9_]{2,63}$",
+          "title": "Content Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^[1-9][0-9]*\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "rule",
+            "skill",
+            "schema"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "uri": {
+          "pattern": "^video-create://[a-z0-9_/-]+$",
+          "title": "Uri",
+          "type": "string"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "mime_type": {
+          "minLength": 1,
+          "title": "Mime Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content_id",
+        "version",
+        "kind",
+        "uri",
+        "content_sha256",
+        "mime_type"
+      ],
+      "title": "CatalogEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/CatalogEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    }
+  },
+  "required": [
+    "entries"
+  ],
+  "title": "CatalogDocument",
+  "type": "object"
+}
