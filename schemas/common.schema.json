@@ -120,27 +120,18 @@
       "type": "object"
     }
   },
-  "additionalProperties": false,
-  "properties": {
-    "artifact_ref": {
+  "anyOf": [
+    {
       "$ref": "#/$defs/ArtifactRef"
     },
-    "time_range": {
+    {
       "$ref": "#/$defs/TimeRangeUs"
     },
-    "success": {
+    {
       "$ref": "#/$defs/SuccessResponse"
     },
-    "failure": {
+    {
       "$ref": "#/$defs/ErrorResponse"
     }
-  },
-  "required": [
-    "artifact_ref",
-    "time_range",
-    "success",
-    "failure"
-  ],
-  "title": "CommonContracts",
-  "type": "object"
+  ]
 }

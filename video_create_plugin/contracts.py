@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
@@ -47,16 +47,13 @@ class SuccessResponse(PluginModel):
     data: dict[str, JsonValue]
 
 
-class CommonContracts(PluginModel):
-    artifact_ref: ArtifactRef
-    time_range: TimeRangeUs
-    success: SuccessResponse
-    failure: ErrorResponse
+CommonContract = ArtifactRef | TimeRangeUs | SuccessResponse | ErrorResponse
 
 
-def canonical_json_sha256(value: Any) -> str:
+def canonical_json_sha256(value: JsonValue) -> str:
     encoded = json.dumps(
         value,
+        allow_nan=False,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),

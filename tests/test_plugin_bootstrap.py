@@ -44,6 +44,6 @@ def test_stdio_server_initializes() -> None:
             async with ClientSession(read_stream, write_stream) as session:
                 result = await session.initialize()
                 assert result.serverInfo.name == "video-create"
-                assert result.serverInfo.version
+                assert result.serverInfo.version == __version__
 
     asyncio.run(initialize())

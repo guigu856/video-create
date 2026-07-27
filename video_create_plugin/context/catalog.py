@@ -10,6 +10,7 @@ import sysconfig
 from pathlib import Path
 from typing import Annotated, Literal, NamedTuple
 
+import yaml
 from pydantic import Field, JsonValue
 
 from video_create_plugin.contracts import PluginModel, Sha256, StableId
@@ -121,8 +122,8 @@ class ContextCatalog:
 
     @staticmethod
     def _validate(spec: _ContentSpec, content: str) -> None:
-        if spec.kind == "rule" and not content.startswith("# "):
-            raise ValueError("rule 必须以一级标题开始")
+        if spec.kind == "rule" and not content.strip():
+            raise ValueError("rule 内容不能为空")
         if spec.kind == "schema":
             if not isinstance(json.loads(content), dict):
                 raise ValueError("schema 必须是 JSON object")
@@ -131,11 +132,18 @@ class ContextCatalog:
             if len(lines) < 4 or lines[0] != "---" or "---" not in lines[1:]:
                 raise ValueError("skill 缺少 frontmatter")
             end = lines[1:].index("---") + 1
-            metadata = dict(line.split(":", 1) for line in lines[1:end] if ":" in line)
+            try:
+                metadata = yaml.safe_load("\n".join(lines[1:end]))
+            except yaml.YAMLError as error:
+                raise ValueError("skill frontmatter 不是合法 YAML") from error
+            if not isinstance(metadata, dict):
+                raise ValueError("skill frontmatter 必须是 mapping")
             expected_name = spec.uri.rsplit("/", 1)[-1]
-            if metadata.get("name", "").strip() != expected_name:
+            name = metadata.get("name")
+            if not isinstance(name, str) or name.strip() != expected_name:
                 raise ValueError("skill name 与资源 URI 不匹配")
-            if not metadata.get("description", "").strip():
+            description = metadata.get("description")
+            if not isinstance(description, str) or not description.strip():
                 raise ValueError("skill description 不能为空")
 
     @staticmethod

@@ -4,11 +4,11 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from video_create_plugin.contracts import (
     ArtifactRef,
-    CommonContracts,
+    CommonContract,
     SuccessResponse,
     TimeRangeUs,
     canonical_json_sha256,
@@ -43,6 +43,12 @@ def test_canonical_json_hash_is_key_order_independent() -> None:
     )
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_canonical_json_hash_rejects_non_json_numbers(value: float) -> None:
+    with pytest.raises(ValueError):
+        canonical_json_sha256(value)
+
+
 def test_plugin_error_maps_to_stable_response() -> None:
     response = PluginError(
         "artifact_not_found",
@@ -69,4 +75,4 @@ def test_common_schema_matches_checked_in_contract() -> None:
     checked_in = json.loads(
         (ROOT / "schemas/common.schema.json").read_text(encoding="utf-8")
     )
-    assert checked_in == CommonContracts.model_json_schema()
+    assert checked_in == TypeAdapter(CommonContract).json_schema()

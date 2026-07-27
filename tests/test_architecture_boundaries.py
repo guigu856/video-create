@@ -6,19 +6,29 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 
 
-def _imports(source: str) -> set[str]:
+def _imports(relative_path: Path, source: str) -> set[str]:
     tree = ast.parse(source)
     imported: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             imported.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            imported.add(node.module)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0:
+                if node.module:
+                    imported.add(node.module)
+                continue
+
+            package_parts = relative_path.parent.parts
+            base_parts = package_parts[: len(package_parts) - node.level + 1]
+            if node.module:
+                imported.add(".".join((*base_parts, node.module)))
+            else:
+                imported.update(".".join((*base_parts, alias.name)) for alias in node.names)
     return imported
 
 
 def _forbidden_imports(relative_path: Path, source: str) -> set[str]:
-    imported = _imports(source)
+    imported = _imports(relative_path, source)
     if relative_path.parts[0] == "components":
         return {
             name
@@ -69,3 +79,11 @@ def test_boundary_rules_detect_reverse_imports() -> None:
         Path("video_create_plugin/application/workflow.py"),
         "from video_create_plugin.mcp import workflow",
     ) == {"video_create_plugin.mcp"}
+    assert _forbidden_imports(
+        Path("video_create_plugin/application/workflow.py"),
+        "from ..mcp import workflow",
+    ) == {"video_create_plugin.mcp"}
+    assert _forbidden_imports(
+        Path("video_create_plugin/repository/workflow.py"),
+        "from ..application import workflow",
+    ) == {"video_create_plugin.application"}

@@ -39,6 +39,18 @@ def test_catalog_reads_only_the_requested_content() -> None:
     assert "video-task-router" not in content
 
 
+def test_rule_content_does_not_require_a_markdown_heading(tmp_path: Path) -> None:
+    for directory in ("rules", "schemas"):
+        shutil.copytree(ROOT / directory, tmp_path / directory)
+    content = "识别任务类型，并进入对应阶段。\n"
+    rule_path = tmp_path / "rules/main-agent.md"
+    rule_path.write_text(content, encoding="utf-8")
+
+    catalog = ContextCatalog(tmp_path)
+
+    assert catalog.read("video-create://rules/main-agent") == rule_path.read_bytes().decode("utf-8")
+
+
 @pytest.mark.parametrize(
     ("relative_path", "invalid_content"),
     [
@@ -68,12 +80,16 @@ def test_catalog_schema_matches_model() -> None:
     assert checked_in == CatalogDocument.model_json_schema()
 
 
-def test_invalid_registered_skill_has_stable_error(tmp_path: Path, monkeypatch) -> None:
+def _register_example_skill(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    content: str,
+) -> None:
     for directory in ("rules", "schemas"):
         shutil.copytree(ROOT / directory, tmp_path / directory)
     skill_path = tmp_path / "skills/example-skill/SKILL.md"
     skill_path.parent.mkdir(parents=True)
-    skill_path.write_text("---\nname: wrong\n---\n", encoding="utf-8")
+    skill_path.write_text(content, encoding="utf-8")
     skill = catalog_module._ContentSpec(
         "skill_example",
         "1.0.0",
@@ -83,6 +99,36 @@ def test_invalid_registered_skill_has_stable_error(tmp_path: Path, monkeypatch) 
         "text/markdown",
     )
     monkeypatch.setattr(catalog_module, "_CONTENT", (*catalog_module._CONTENT, skill))
+
+
+def test_registered_skill_accepts_yaml_quoted_name(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register_example_skill(
+        tmp_path,
+        monkeypatch,
+        '---\nname: "example-skill"\ndescription: 示例\n---\n执行步骤。\n',
+    )
+
+    catalog = ContextCatalog(tmp_path)
+
+    assert catalog.read("video-create://skills/example-skill")
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "---\nname: wrong\ndescription: 示例\n---\n执行步骤。\n",
+        "---\nname: example-skill\ndescription: >\n---\n执行步骤。\n",
+    ],
+)
+def test_invalid_registered_skill_has_stable_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    content: str,
+) -> None:
+    _register_example_skill(tmp_path, monkeypatch, content)
 
     with pytest.raises(PluginError) as caught:
         ContextCatalog(tmp_path)
