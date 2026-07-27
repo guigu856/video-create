@@ -42,14 +42,6 @@ include = ["components*", "video_create_plugin*"]
 [tool.setuptools.package-data]
 "components.video_editor" = ["web/*"]
 
-[tool.setuptools.data-files]
-"share/video-create" = [".mcp.json"]
-"share/video-create/.codex-plugin" = [".codex-plugin/plugin.json"]
-"share/video-create/.claude-plugin" = [".claude-plugin/plugin.json"]
-"share/video-create/rules" = ["rules/main-agent.md"]
-"share/video-create/schemas" = ["schemas/catalog.schema.json", "schemas/common.schema.json"]
-"share/video-create/skills" = ["skills/README.md"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

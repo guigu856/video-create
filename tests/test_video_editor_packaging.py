@@ -14,12 +14,27 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
     source_root = tmp_path / "source"
     source_root.mkdir()
     shutil.copy2(project_root / "pyproject.toml", source_root / "pyproject.toml")
+    shutil.copy2(project_root / "setup.py", source_root / "setup.py")
     shutil.copy2(project_root / ".mcp.json", source_root / ".mcp.json")
     shutil.copytree(project_root / ".codex-plugin", source_root / ".codex-plugin")
     shutil.copytree(project_root / ".claude-plugin", source_root / ".claude-plugin")
     shutil.copytree(project_root / "rules", source_root / "rules")
     shutil.copytree(project_root / "schemas", source_root / "schemas")
     shutil.copytree(project_root / "skills", source_root / "skills")
+    role_path = source_root / "rules/roles/packaging-agent.md"
+    role_path.parent.mkdir(parents=True)
+    role_path.write_text(
+        "---\nrole_id: packaging-agent\nversion: 1.0.0\n"
+        "description: 验证角色 Rule 打包\n---\n角色规则。\n",
+        encoding="utf-8",
+    )
+    skill_path = source_root / "skills/packaging-skill/SKILL.md"
+    skill_path.parent.mkdir(parents=True)
+    skill_path.write_text(
+        "---\nname: packaging-skill\ndescription: 验证 Skill 打包\n"
+        "metadata:\n  resource_version: 1.0.0\n---\n执行步骤。\n",
+        encoding="utf-8",
+    )
     shutil.copytree(
         project_root / "components",
         source_root / "components",
@@ -54,7 +69,15 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
         assert "components/video_editor/web/index.html" in names
         assert "components/video_editor/web/app.js" in names
         assert any(name.endswith("share/video-create/rules/main-agent.md") for name in names)
+        assert any(
+            name.endswith("share/video-create/rules/roles/packaging-agent.md")
+            for name in names
+        )
         assert any(name.endswith("share/video-create/skills/README.md") for name in names)
+        assert any(
+            name.endswith("share/video-create/skills/packaging-skill/SKILL.md")
+            for name in names
+        )
         assert any(
             name.endswith("share/video-create/schemas/catalog.schema.json") for name in names
         )
