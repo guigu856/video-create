@@ -54,10 +54,7 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
         assert "components/video_editor/web/index.html" in names
         assert "components/video_editor/web/app.js" in names
         assert any(name.endswith("share/video-create/rules/main-agent.md") for name in names)
-        assert any(
-            name.endswith("share/video-create/skills/video-task-router/SKILL.md")
-            for name in names
-        )
+        assert any(name.endswith("share/video-create/skills/README.md") for name in names)
         assert any(
             name.endswith("share/video-create/schemas/catalog.schema.json") for name in names
         )

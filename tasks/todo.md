@@ -108,8 +108,8 @@ repository 和 components 互相反向依赖。
 
 ## Task 5: 打通 Context Catalog 最小闭环
 
-**Description:** 只实现 catalog、单个 main rule、单个 router skill 和 schema Resource 的
-发现与读取，验证渐进式上下文加载边界。
+**Description:** 只实现 catalog、单个 main rule 和 schema Resource 的发现与读取，验证
+渐进式上下文加载边界；任务类型判断直接由 main rule 约束。
 
 **Acceptance criteria:**
 - [x] catalog 列出内容 ID、版本、类型和 URI。
@@ -125,7 +125,6 @@ repository 和 components 互相反向依赖。
 **Files likely touched:**
 - `D:\project\video_create\video_create_plugin\context\catalog.py`
 - `D:\project\video_create\rules\main-agent.md`
-- `D:\project\video_create\skills\video-task-router\SKILL.md`
 - `D:\project\video_create\schemas\catalog.schema.json`
 - `D:\project\video_create\tests\test_context_catalog.py`
 

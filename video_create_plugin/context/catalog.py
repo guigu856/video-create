@@ -53,14 +53,6 @@ _CONTENT = (
         "text/markdown",
     ),
     _ContentSpec(
-        "skill_video_task_router",
-        "1.0.0",
-        "skill",
-        "video-create://skills/video-task-router",
-        "skills/video-task-router/SKILL.md",
-        "text/markdown",
-    ),
-    _ContentSpec(
         "schema_common",
         "1.0.0",
         "schema",
@@ -140,8 +132,9 @@ class ContextCatalog:
                 raise ValueError("skill 缺少 frontmatter")
             end = lines[1:].index("---") + 1
             metadata = dict(line.split(":", 1) for line in lines[1:end] if ":" in line)
-            if metadata.get("name", "").strip() != "video-task-router":
-                raise ValueError("skill name 不匹配")
+            expected_name = spec.uri.rsplit("/", 1)[-1]
+            if metadata.get("name", "").strip() != expected_name:
+                raise ValueError("skill name 与资源 URI 不匹配")
             if not metadata.get("description", "").strip():
                 raise ValueError("skill description 不能为空")
 

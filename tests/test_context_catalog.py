@@ -10,6 +10,7 @@ import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+from video_create_plugin.context import catalog as catalog_module
 from video_create_plugin.context.catalog import CatalogDocument, ContextCatalog
 from video_create_plugin.errors import PluginError
 
@@ -23,12 +24,6 @@ def test_catalog_lists_fixed_versioned_content() -> None:
 
     assert [(entry.content_id, entry.version, entry.kind, entry.uri) for entry in entries] == [
         ("rule_main_agent", "1.0.0", "rule", "video-create://rules/main-agent"),
-        (
-            "skill_video_task_router",
-            "1.0.0",
-            "skill",
-            "video-create://skills/video-task-router",
-        ),
         ("schema_common", "1.0.0", "schema", "video-create://schemas/common"),
         ("schema_catalog", "1.0.0", "schema", "video-create://schemas/catalog"),
     ]
@@ -48,7 +43,6 @@ def test_catalog_reads_only_the_requested_content() -> None:
     ("relative_path", "invalid_content"),
     [
         ("rules/main-agent.md", ""),
-        ("skills/video-task-router/SKILL.md", "---\nname: wrong\n---\n"),
         ("schemas/common.schema.json", "{"),
     ],
 )
@@ -57,7 +51,7 @@ def test_invalid_context_content_has_stable_error(
     relative_path: str,
     invalid_content: str,
 ) -> None:
-    for directory in ("rules", "skills", "schemas"):
+    for directory in ("rules", "schemas"):
         shutil.copytree(ROOT / directory, tmp_path / directory)
     (tmp_path / relative_path).write_text(invalid_content, encoding="utf-8")
 
@@ -72,6 +66,29 @@ def test_catalog_schema_matches_model() -> None:
     checked_in = json.loads((ROOT / "schemas/catalog.schema.json").read_text(encoding="utf-8"))
 
     assert checked_in == CatalogDocument.model_json_schema()
+
+
+def test_invalid_registered_skill_has_stable_error(tmp_path: Path, monkeypatch) -> None:
+    for directory in ("rules", "schemas"):
+        shutil.copytree(ROOT / directory, tmp_path / directory)
+    skill_path = tmp_path / "skills/example-skill/SKILL.md"
+    skill_path.parent.mkdir(parents=True)
+    skill_path.write_text("---\nname: wrong\n---\n", encoding="utf-8")
+    skill = catalog_module._ContentSpec(
+        "skill_example",
+        "1.0.0",
+        "skill",
+        "video-create://skills/example-skill",
+        "skills/example-skill/SKILL.md",
+        "text/markdown",
+    )
+    monkeypatch.setattr(catalog_module, "_CONTENT", (*catalog_module._CONTENT, skill))
+
+    with pytest.raises(PluginError) as caught:
+        ContextCatalog(tmp_path)
+
+    assert caught.value.code == "context_content_invalid"
+    assert caught.value.details["path"] == "skills/example-skill/SKILL.md"
 
 
 def test_stdio_resources_list_and_read_context() -> None:
@@ -89,7 +106,6 @@ def test_stdio_resources_list_and_read_context() -> None:
                 assert uris == {
                     "video-create://catalog",
                     "video-create://rules/main-agent",
-                    "video-create://skills/video-task-router",
                     "video-create://schemas/common",
                     "video-create://schemas/catalog",
                 }

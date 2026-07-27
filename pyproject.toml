@@ -46,7 +46,7 @@ include = ["components*", "video_create_plugin*"]
 "share/video-create/.claude-plugin" = [".claude-plugin/plugin.json"]
 "share/video-create/rules" = ["rules/main-agent.md"]
 "share/video-create/schemas" = ["schemas/catalog.schema.json", "schemas/common.schema.json"]
-"share/video-create/skills/video-task-router" = ["skills/video-task-router/SKILL.md"]
+"share/video-create/skills" = ["skills/README.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
