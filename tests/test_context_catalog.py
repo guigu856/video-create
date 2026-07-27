@@ -1,3 +1,5 @@
+"""验证 Context Catalog 的固定内容、稳定错误以及 MCP Resource 列出与读取闭环。"""
+
 import asyncio
 import json
 import shutil

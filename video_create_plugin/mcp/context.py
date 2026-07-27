@@ -1,4 +1,4 @@
-"""Context Catalog 的 MCP Resource 映射。"""
+"""把 Context Catalog 映射为可发现、可按稳定 URI 读取的 MCP Resources。"""
 
 from mcp.server.fastmcp import FastMCP
 

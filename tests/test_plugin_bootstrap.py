@@ -1,3 +1,5 @@
+"""验证跨宿主 Plugin 身份一致、MCP Server 身份稳定并可通过 stdio 初始化。"""
+
 import asyncio
 import json
 import sys

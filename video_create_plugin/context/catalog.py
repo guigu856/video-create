@@ -1,4 +1,8 @@
-"""固定 rules、skills 与 schema 的版本化目录。"""
+"""维护固定 rules、skills 与 schema 的版本化目录。
+
+本模块从源码或安装数据目录加载受控内容，校验最低结构，计算文件哈希，并通过稳定 URI
+提供目录发现与精确读取；调用方不直接传入任意文件路径。
+"""
 
 import hashlib
 import json

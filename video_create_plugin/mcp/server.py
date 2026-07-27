@@ -1,4 +1,4 @@
-"""视频创作 MCP Server 入口。"""
+"""创建并启动视频创作 stdio MCP Server，集中组装协议层资源注册。"""
 
 from pathlib import Path
 

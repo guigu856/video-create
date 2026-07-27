@@ -1,3 +1,5 @@
+"""验证公共值对象、稳定响应、规范化哈希与检入 JSON Schema 的合同边界。"""
+
 import json
 from pathlib import Path
 

@@ -1,4 +1,4 @@
-"""Plugin 稳定错误。"""
+"""定义 Plugin 稳定错误，并把内部异常信息映射为统一错误响应合同。"""
 
 from pydantic import JsonValue
 

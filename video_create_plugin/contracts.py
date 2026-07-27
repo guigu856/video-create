@@ -1,4 +1,4 @@
-"""Plugin 公共值对象。"""
+"""定义 Plugin 各层共享的稳定 ID、时间、Artifact 引用、响应与哈希合同。"""
 
 import hashlib
 import json

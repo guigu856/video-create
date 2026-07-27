@@ -1,3 +1,5 @@
+"""验证源码树遵守组件、MCP、应用服务与持久化适配层之间的依赖方向。"""
+
 import ast
 from pathlib import Path
 
