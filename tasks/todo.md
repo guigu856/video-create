@@ -13,16 +13,16 @@
 作为新实现起点；区分源码与本地 output 证据，并把当前分支原地统一为 `main`。
 
 **Acceptance criteria:**
-- [ ] 当前源码、测试、文档和 output 产物完成分类清单。
-- [ ] 当前开发分支为 `main`，工作目录仍为 `D:\project\video_create`。
-- [ ] 当前 238 项测试、Ruff、mypy 和 JavaScript 语法检查保持通过。
-- [ ] 当前源码、测试和设计文档形成可审查的主基线提交。
+- [x] 当前源码、测试、文档和 output 产物完成分类清单。
+- [x] 当前开发分支为 `main`，工作目录仍为 `D:\project\video_create`。
+- [x] 当前 238 项测试、Ruff、mypy 和 JavaScript 语法检查保持通过。
+- [x] 当前源码、测试和设计文档形成可审查的主基线提交。
 
 **Verification:**
-- [ ] `git branch --show-current` 返回 `main`。
-- [ ] `git status --short --branch` 仅保留明确排除的本地 output 证据。
-- [ ] `uv run pytest -q`、`uv run ruff check .`、`uv run mypy`。
-- [ ] 全部 Web JavaScript 执行 `node --check`。
+- [x] `git branch --show-current` 返回 `main`。
+- [x] `git status --short --branch` 仅保留明确排除的本地 output 证据。
+- [x] `uv run pytest -q`、`uv run ruff check .`、`uv run mypy`。
+- [x] 全部 Web JavaScript 执行 `node --check`。
 
 **Dependencies:** None
 
@@ -38,14 +38,14 @@
 工作流、知识和分析模块。
 
 **Acceptance criteria:**
-- [ ] `.codex-plugin`、`.claude-plugin` 和 `.mcp.json` 使用同一身份。
-- [ ] `video-create-mcp` 可启动并完成 initialize。
-- [ ] wheel 包含启动所需 manifest。
+- [x] `.codex-plugin`、`.claude-plugin` 和 `.mcp.json` 使用同一身份。
+- [x] `video-create-mcp` 可启动并完成 initialize。
+- [x] wheel 包含启动所需 manifest。
 
 **Verification:**
-- [ ] `uv build`。
-- [ ] 在临时环境安装 wheel。
-- [ ] MCP initialize 冒烟通过。
+- [x] `uv build`。
+- [x] 在临时环境安装 wheel。
+- [x] MCP initialize 冒烟通过。
 
 **Dependencies:** Task 1
 
@@ -64,13 +64,13 @@
 repository 和 components 互相反向依赖。
 
 **Acceptance criteria:**
-- [ ] 禁止 components import Plugin、MCP、rules 或 skills。
-- [ ] 禁止 repository import MCP adapter。
-- [ ] 架构违规测试提供具体 import 路径。
+- [x] 禁止 components import Plugin、MCP、rules 或 skills。
+- [x] 禁止 repository import MCP adapter。
+- [x] 架构违规测试提供具体 import 路径。
 
 **Verification:**
-- [ ] `uv run pytest tests/test_architecture_boundaries.py -q`。
-- [ ] 人工注入一条反向 import 时测试失败，移除后通过。
+- [x] `uv run pytest tests/test_architecture_boundaries.py -q`。
+- [x] 人工注入一条反向 import 时测试失败，移除后通过。
 
 **Dependencies:** Task 2
 
@@ -88,13 +88,13 @@ repository 和 components 互相反向依赖。
 时间单位和哈希逻辑。
 
 **Acceptance criteria:**
-- [ ] 内部时间统一使用整数微秒。
-- [ ] Artifact 引用包含 ID、revision 和 SHA-256。
-- [ ] MCP 成功和错误响应结构固定。
+- [x] 内部时间统一使用整数微秒。
+- [x] Artifact 引用包含 ID、revision 和 SHA-256。
+- [x] MCP 成功和错误响应结构固定。
 
 **Verification:**
-- [ ] 值对象边界测试通过。
-- [ ] JSON round-trip 和哈希稳定性测试通过。
+- [x] 值对象边界测试通过。
+- [x] JSON round-trip 和哈希稳定性测试通过。
 
 **Dependencies:** Task 3
 
@@ -112,13 +112,13 @@ repository 和 components 互相反向依赖。
 发现与读取，验证渐进式上下文加载边界。
 
 **Acceptance criteria:**
-- [ ] catalog 列出内容 ID、版本、类型和 URI。
-- [ ] Resource 读取只返回请求内容。
-- [ ] rule、skill 和 schema 校验失败具有稳定错误码。
+- [x] catalog 列出内容 ID、版本、类型和 URI。
+- [x] Resource 读取只返回请求内容。
+- [x] rule、skill 和 schema 校验失败具有稳定错误码。
 
 **Verification:**
-- [ ] `resources/list` 和 `resources/read` 冒烟通过。
-- [ ] catalog 与文件内容版本测试通过。
+- [x] `resources/list` 和 `resources/read` 冒烟通过。
+- [x] catalog 与文件内容版本测试通过。
 
 **Dependencies:** Task 4
 
@@ -133,11 +133,11 @@ repository 和 components 互相反向依赖。
 
 ## Checkpoint A: Plugin 可安装、可启动、边界稳定
 
-- [ ] 当前主工作区和 `main` 分支保持唯一开发入口。
-- [ ] 现有剪辑器能力保持通过。
-- [ ] wheel 安装与 MCP initialize 通过。
-- [ ] catalog Resource 可读取。
-- [ ] 架构边界测试、pytest、Ruff、mypy 通过。
+- [x] 当前主工作区和 `main` 分支保持唯一开发入口。
+- [x] 现有剪辑器能力保持通过。
+- [x] wheel 安装与 MCP initialize 通过。
+- [x] catalog Resource 可读取。
+- [x] 架构边界测试、pytest、Ruff、mypy 通过。
 - [ ] 人工确认后进入 Phase 1。
 
 ## Phase 1：参考学习纵向闭环
