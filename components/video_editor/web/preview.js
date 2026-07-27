@@ -1,5 +1,5 @@
 import { editorApi } from "./api.js";
-import { findAsset, visibleClips } from "./state.js";
+import { findAsset, transformAt, visibleClips } from "./state.js";
 
 export function createPreview(container, callbacks) {
   const elements = new Map();
@@ -93,22 +93,21 @@ export function createPreview(container, callbacks) {
     element.style.transform = `rotate(${transform.rotation}deg)`;
   }
 
-  function positionElement(element, clip, canvas) {
-    const transform = clip.transform;
+  function positionElement(element, transform, canvas) {
     setGeometry(element, transform, canvas);
     element.style.opacity = String(transform.opacity);
   }
 
-  function positionSelection(clip, canvas) {
-    selection.dataset.clipId = clip.id;
-    setGeometry(selection, clip.transform, canvas);
+  function positionSelection(clipId, transform, canvas) {
+    selection.dataset.clipId = clipId;
+    setGeometry(selection, transform, canvas);
     selection.hidden = false;
   }
 
   function applyDraft(clipId, transform, canvas) {
     const element = elements.get(clipId);
-    if (element) positionElement(element, { transform }, canvas);
-    positionSelection({ id: clipId, transform }, canvas);
+    if (element) positionElement(element, transform, canvas);
+    positionSelection(clipId, transform, canvas);
   }
 
   function rounded(value) {
@@ -232,7 +231,7 @@ export function createPreview(container, callbacks) {
         elements.set(clip.id, element);
         container.append(element);
       }
-      positionElement(element, clip, project.canvas);
+      positionElement(element, transformAt(clip, seconds), project.canvas);
       const trackIndex = project.tracks.indexOf(track);
       const clipIndex = track.clips.indexOf(clip);
       element.style.zIndex = String((project.tracks.length - trackIndex) * 1000 + clipIndex);
@@ -269,7 +268,11 @@ export function createPreview(container, callbacks) {
     );
     activeSelection = selected ? { clip: selected.clip, canvas: project.canvas } : null;
     if (activeSelection) {
-      positionSelection(activeSelection.clip, project.canvas);
+      positionSelection(
+        activeSelection.clip.id,
+        transformAt(activeSelection.clip, seconds),
+        project.canvas,
+      );
     } else {
       selection.hidden = true;
       delete selection.dataset.clipId;

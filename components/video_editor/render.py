@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Protocol, cast
 
 from .errors import VideoEditorError
+from .expressions import is_dynamic, resolve_property
 from .media import probe_media, resolve_media_path
-from .models import EditorProject, MediaMetadata
+from .models import Clip, ClipFilter, EditorProject, MediaMetadata
 
 
 class RenderProcess(Protocol):
@@ -42,6 +43,119 @@ class RenderPlan:
 class RenderSupportFile:
     path: Path
     content: str
+
+
+def _build_filter_nodes(filters: list[ClipFilter]) -> list[str]:
+    """把 ClipFilter 列表编译为 FFmpeg 滤镜节点。"""
+    nodes: list[str] = []
+    for clip_filter in filters:
+        kind = clip_filter.kind
+        params = clip_filter.params
+        if kind == "lut":
+            nodes.append(f"lut3d=file='{_escape_filter_value(str(params['file']))}'")
+        elif kind in ("eq", "hue"):
+            nodes.append(f"{kind}=" + ":".join(f"{k}={v}" for k, v in params.items()))
+        elif kind == "curves":
+            nodes.append("curves=" + ":".join(f"{k}='{v}'" for k, v in params.items()))
+        elif kind == "blur":
+            nodes.append(f"gblur=sigma={params['sigma']}")
+        elif kind == "unsharp":
+            nodes.append(f"unsharp=lms={params.get('lms', 5)}:las={params.get('las', 5)}")
+        elif kind == "vignette":
+            nodes.append(f"vignette=angle={params.get('angle', 'PI/5')}")
+        elif kind == "noise":
+            nodes.append(f"noise=alls={params.get('alls', 20)}:allf={params.get('allf', 't')}")
+    return nodes
+
+
+def _build_media_branch(clip: Clip, timeline_start: float) -> list[str]:
+    """单个媒体片段的滤镜链：trim 到透明度。属性值由表达式引擎统一供给。"""
+    transform = clip.transform
+    keyframes = clip.keyframes
+    head = [
+        f"trim=start={_number(clip.source_in)}:end={_number(clip.source_in + clip.duration)}",
+        f"setpts=PTS-STARTPTS+{_number(timeline_start)}/TB",
+    ]
+    width = resolve_property(keyframes, "width", transform.width, timeline_start)
+    height = resolve_property(keyframes, "height", transform.height, timeline_start)
+    size_is_dynamic = is_dynamic(width) or is_dynamic(height)
+    scale = f"scale={width}:{height}" + (":eval=frame" if size_is_dynamic else "")
+    rotation = resolve_property(keyframes, "rotation", transform.rotation, timeline_start)
+    rotate = (
+        f"rotate={rotation}*PI/180:c=none:ow=rotw(iw):oh=roth(ih)"
+        if is_dynamic(rotation) or transform.rotation != 0
+        else None
+    )
+    opacity = resolve_property(keyframes, "opacity", transform.opacity, timeline_start)
+    if is_dynamic(opacity):
+        opacity_node = _geq_alpha(opacity)
+    elif transform.opacity != 1:
+        opacity_node = f"colorchannelmixer=aa={_number(transform.opacity)}"
+    else:
+        opacity_node = None
+
+    if size_is_dynamic:
+        # FFmpeg 约束：eval=frame 的 scale 之后接 format/rotate/geq 等滤镜会
+        # 固定输出尺寸，使逐帧缩放失效，故动态缩放必须置于链尾。
+        branch = head + _build_filter_nodes(clip.filters) + ["format=rgba"]
+        if rotate is not None:
+            branch.append(rotate)
+        if opacity_node is not None:
+            branch.append(opacity_node)
+        branch.append(scale)
+        return branch
+
+    branch = head + [scale]
+    if rotate is not None:
+        branch.append(rotate)
+    branch.extend(_build_filter_nodes(clip.filters))
+    branch.append("format=rgba")
+    if opacity_node is not None:
+        branch.append(opacity_node)
+    return branch
+
+
+def _geq_alpha(opacity_expression: str) -> str:
+    """把透明度表达式编译为 geq 的 alpha 节点。
+
+    geq 的选项值位于单引号内，逗号无需转义；其时间变量为大写 T。
+    """
+    plain = opacity_expression.replace("\\,", ",").replace("(t", "(T")
+    return (
+        "geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':"
+        f"a='({plain})*alpha(X,Y)'"
+    )
+
+
+def _build_xfade_input_branch(clip: Clip, fps: float) -> list[str]:
+    """转场组成员的滤镜链：时间戳归零、静态变换，供 xfade 合并。"""
+    transform = clip.transform
+    branch = [
+        f"trim=start={_number(clip.source_in)}:end={_number(clip.source_in + clip.duration)}",
+        "setpts=PTS-STARTPTS",
+        f"fps={_number(fps)}",
+        f"scale={_number(transform.width)}:{_number(transform.height)}",
+    ]
+    if transform.rotation != 0:
+        branch.append(
+            f"rotate={_number(transform.rotation)}*PI/180:c=none:ow=rotw(iw):oh=roth(ih)"
+        )
+    branch.extend(_build_filter_nodes(clip.filters))
+    branch.append("format=rgba")
+    if transform.opacity != 1:
+        branch.append(f"colorchannelmixer=aa={_number(transform.opacity)}")
+    return branch
+
+
+def _group_by_transition(clips: list[Clip]) -> list[list[Clip]]:
+    """把列表相邻且以 transition_in 相连的片段分为一组。"""
+    groups: list[list[Clip]] = []
+    for clip in clips:
+        if clip.transition_in is not None and groups:
+            groups[-1].append(clip)
+        else:
+            groups.append([clip])
+    return groups
 
 
 def compile_render_plan(
@@ -142,7 +256,57 @@ def compile_render_plan(
     for track in reversed(project.tracks):
         if track.media_domain != "visual":
             continue
-        for clip in track.clips:
+        for group in _group_by_transition(track.clips):
+            if len(group) > 1:
+                input_labels: list[str] = []
+                for member in group:
+                    if member.asset_id is None:
+                        continue
+                    asset = assets[member.asset_id]
+                    source_offset = visual_source_offsets[asset.id]
+                    source_label = visual_sources[asset.id][source_offset]
+                    visual_source_offsets[asset.id] += 1
+                    member_label = f"vxf{visual_index}_{len(input_labels)}"
+                    graph.append(
+                        f"[{source_label}]"
+                        f"{','.join(_build_xfade_input_branch(member, project.canvas.fps))}"
+                        f"[{member_label}]"
+                    )
+                    input_labels.append(member_label)
+                merged = input_labels[0]
+                accumulated = group[0].duration
+                for member_index in range(1, len(group)):
+                    member = group[member_index]
+                    transition = member.transition_in
+                    if transition is None:
+                        continue
+                    out_label = f"vxfm{visual_index}_{member_index}"
+                    offset = accumulated - transition.duration
+                    graph.append(
+                        f"[{merged}][{input_labels[member_index]}]xfade="
+                        f"transition={transition.effect}:"
+                        f"duration={_number(transition.duration)}:"
+                        f"offset={_number(offset)}[{out_label}]"
+                    )
+                    merged = out_label
+                    accumulated = offset + member.duration
+                positioned = f"vxfp{visual_index}"
+                graph.append(
+                    f"[{merged}]setpts=PTS-STARTPTS+"
+                    f"{_number(group[0].timeline_start)}/TB[{positioned}]"
+                )
+                next_video = f"vbase{visual_index + 1}"
+                first = group[0]
+                graph.append(
+                    f"[{current_video}][{positioned}]overlay="
+                    f"x={_number(first.transform.x)}:y={_number(first.transform.y)}:"
+                    "eof_action=pass:shortest=0:repeatlast=0"
+                    f"[{next_video}]"
+                )
+                current_video = next_video
+                visual_index += 1
+                continue
+            clip = group[0]
             if clip.kind == "media":
                 if clip.asset_id is None:
                     continue
@@ -150,35 +314,19 @@ def compile_render_plan(
                 source_offset = visual_source_offsets[asset.id]
                 source_label = visual_sources[asset.id][source_offset]
                 visual_source_offsets[asset.id] += 1
-                source_end = clip.source_in + clip.duration
-                branch = [
-                    f"trim=start={_number(clip.source_in)}:end={_number(source_end)}",
-                    (
-                        "setpts=PTS-STARTPTS+"
-                        f"{_number(clip.timeline_start)}/TB"
-                    ),
-                    (
-                        f"scale={_number(clip.transform.width)}:"
-                        f"{_number(clip.transform.height)}"
-                    ),
-                ]
-                if clip.transform.rotation != 0:
-                    branch.append(
-                        "rotate="
-                        f"{_number(clip.transform.rotation)}*PI/180:"
-                        "c=none:ow=rotw(iw):oh=roth(ih)"
-                    )
-                branch.append("format=rgba")
-                if clip.transform.opacity != 1:
-                    branch.append(
-                        f"colorchannelmixer=aa={_number(clip.transform.opacity)}"
-                    )
+                branch = _build_media_branch(clip, clip.timeline_start)
                 clip_label = f"vclip{visual_index}"
                 graph.append(f"[{source_label}]{','.join(branch)}[{clip_label}]")
                 next_video = f"vbase{visual_index + 1}"
+                overlay_x = resolve_property(
+                    clip.keyframes, "x", clip.transform.x, clip.timeline_start
+                )
+                overlay_y = resolve_property(
+                    clip.keyframes, "y", clip.transform.y, clip.timeline_start
+                )
                 graph.append(
                     f"[{current_video}][{clip_label}]overlay="
-                    f"x={_number(clip.transform.x)}:y={_number(clip.transform.y)}:"
+                    f"x={overlay_x}:y={overlay_y}:"
                     "eof_action=pass:shortest=0:repeatlast=0"
                     f"[{next_video}]"
                 )

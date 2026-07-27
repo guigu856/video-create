@@ -629,6 +629,58 @@ select {
   resize: vertical;
 }
 
+.inspector-form select {
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  font-size: 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.hint-text {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.filter-list {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.filter-row button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.filter-row button:hover {
+  color: var(--danger, #ff6b6b);
+}
+
 .range-field {
   display: grid;
   grid-template-columns: 42px 1fr 38px;
