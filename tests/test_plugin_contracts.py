@@ -7,8 +7,8 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from video_create_plugin.contracts import (
-    ArtifactRef,
     CommonContract,
+    FileRef,
     SuccessResponse,
     TimeRangeUs,
     canonical_json_sha256,
@@ -19,13 +19,29 @@ ROOT = Path(__file__).parents[1]
 SHA256 = "a" * 64
 
 
-def test_artifact_ref_rejects_invalid_identity_revision_and_hash() -> None:
+def test_file_ref_round_trips_without_workflow_state() -> None:
+    value = FileRef(path="analysis/source.mp4", sha256=SHA256, schema_version="1.0")
+
+    assert FileRef.model_validate_json(value.model_dump_json()) == value
+    assert value.model_dump() == {
+        "path": "analysis/source.mp4",
+        "sha256": SHA256,
+        "schema_version": "1.0",
+    }
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/absolute/source.mp4", "../source.mp4", "analysis/../source.mp4", r"analysis\source.mp4"],
+)
+def test_file_ref_rejects_paths_outside_the_controlled_root(path: str) -> None:
     with pytest.raises(ValidationError):
-        ArtifactRef(artifact_id="Artifact-1", revision=1, sha256=SHA256)
+        FileRef(path=path, sha256=SHA256)
+
+
+def test_file_ref_rejects_invalid_hash() -> None:
     with pytest.raises(ValidationError):
-        ArtifactRef(artifact_id="artifact_1", revision=0, sha256=SHA256)
-    with pytest.raises(ValidationError):
-        ArtifactRef(artifact_id="artifact_1", revision=1, sha256="A" * 64)
+        FileRef(path="analysis/source.mp4", sha256="A" * 64)
 
 
 def test_time_range_uses_non_empty_integer_microseconds() -> None:
@@ -72,7 +88,5 @@ def test_success_response_rejects_unknown_fields() -> None:
 
 
 def test_common_schema_matches_checked_in_contract() -> None:
-    checked_in = json.loads(
-        (ROOT / "schemas/common.schema.json").read_text(encoding="utf-8")
-    )
+    checked_in = json.loads((ROOT / "schemas/common.schema.json").read_text(encoding="utf-8"))
     assert checked_in == TypeAdapter(CommonContract).json_schema()
