@@ -286,3 +286,41 @@ class ReferenceStudyReport(PluginModel):
         if self.duration_us != self.shot_analysis.duration_us:
             raise ValueError("报告片长与逐镜时间线片长不一致")
         return self
+
+
+ReportFileRole = Literal[
+    "structured_report",
+    "video_overview",
+    "bgm_analysis_json",
+    "bgm_analysis_markdown",
+    "shot_analysis_json",
+    "shot_analysis_markdown",
+    "editing_grammar",
+    "creation_context_projection",
+    "evidence_bundle",
+]
+
+
+class ReferenceReportFile(PluginModel):
+    role: ReportFileRole
+    file: FileRef
+
+
+class ReferenceReportManifest(PluginModel):
+    schema_version: Literal["1.0"] = "1.0"
+    report_id: StableId
+    analysis_id: StableId
+    source_media_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    analysis_version: str = Field(min_length=1)
+    files: tuple[ReferenceReportFile, ...]
+
+    def file_for(self, role: ReportFileRole) -> FileRef:
+        for item in self.files:
+            if item.role == role:
+                return item.file
+        raise KeyError(role)
+
+
+class ReferenceReportOutput(PluginModel):
+    manifest: ReferenceReportManifest
+    manifest_file: FileRef
