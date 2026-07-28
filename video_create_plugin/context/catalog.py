@@ -76,6 +76,14 @@ _FIXED_SCHEMAS = (
         "schemas/catalog.schema.json",
         "application/schema+json",
     ),
+    _ContentSpec(
+        "schema_reference_study",
+        "1.0.0",
+        "schema",
+        "video-create://schemas/reference-study",
+        "schemas/reference-study.schema.json",
+        "application/schema+json",
+    ),
 )
 
 

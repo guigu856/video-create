@@ -9,7 +9,11 @@ def _data_files(root: Path) -> list[tuple[str, list[str]]]:
         ("share/video-create/rules", ["rules/main-agent.md"]),
         (
             "share/video-create/schemas",
-            ["schemas/catalog.schema.json", "schemas/common.schema.json"],
+            [
+                "schemas/catalog.schema.json",
+                "schemas/common.schema.json",
+                "schemas/reference-study.schema.json",
+            ],
         ),
         ("share/video-create/skills", ["skills/README.md"]),
     ]

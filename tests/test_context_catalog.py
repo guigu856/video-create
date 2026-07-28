@@ -31,6 +31,12 @@ def test_catalog_lists_fixed_versioned_content() -> None:
         ("rule_main_agent", "1.0.0", "rule", "video-create://rules/main-agent"),
         ("schema_common", "1.0.0", "schema", "video-create://schemas/common"),
         ("schema_catalog", "1.0.0", "schema", "video-create://schemas/catalog"),
+        (
+            "schema_reference_study",
+            "1.0.0",
+            "schema",
+            "video-create://schemas/reference-study",
+        ),
     ]
     assert all(len(entry.content_sha256) == 64 for entry in entries)
 
@@ -138,6 +144,12 @@ def test_catalog_discovers_role_rules_and_skills(tmp_path: Path) -> None:
         ),
         ("schema_common", "1.0.0", "schema", "video-create://schemas/common"),
         ("schema_catalog", "1.0.0", "schema", "video-create://schemas/catalog"),
+        (
+            "schema_reference_study",
+            "1.0.0",
+            "schema",
+            "video-create://schemas/reference-study",
+        ),
     ]
     assert catalog.read(entries[1].uri) == role_path.read_bytes().decode("utf-8")
     assert catalog.read(entries[2].uri) == skill_path.read_bytes().decode("utf-8")
@@ -233,6 +245,7 @@ def test_stdio_resources_list_and_read_context() -> None:
                     "video-create://rules/main-agent",
                     "video-create://schemas/common",
                     "video-create://schemas/catalog",
+                    "video-create://schemas/reference-study",
                 }
 
                 catalog = await session.read_resource("video-create://catalog")
