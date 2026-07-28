@@ -57,6 +57,7 @@ python_version = "3.11"
 strict = true
 packages = [
     "components.material_acquisition",
+    "components.video_analysis",
     "components.video_download",
     "components.video_editor",
     "video_create_plugin",
