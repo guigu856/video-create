@@ -1,0 +1,15 @@
+{
+  "scenario_id": "reference_study_real_media",
+  "source": "替换为工作区内真实参考视频路径或分享文本",
+  "steps": [
+    "按需读取主 Rule、参考学习角色 Rule 和 reference-study Skill",
+    "解析并固化来源",
+    "运行视频和音频证据 Job",
+    "Agent 基于 EvidenceBundle 提交 ReferenceStudyReport",
+    "校验并生成 Markdown、JSON 和 manifest",
+    "预览待发布知识",
+    "用户明确确认",
+    "发布并按阶段检索知识"
+  ],
+  "publication_requires_user_confirmation": true
+}

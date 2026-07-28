@@ -19,10 +19,10 @@ class AnalysisJobRepository:
         )
         if not self._jobs_dir.is_relative_to(self._workspace_root):
             raise ValueError("jobs_dir 必须位于 workspace_root 内")
-        self._jobs_dir.mkdir(parents=True, exist_ok=True)
         self._interrupt_running_jobs()
 
     def save(self, job: AnalysisJob) -> AnalysisJob:
+        self._jobs_dir.mkdir(parents=True, exist_ok=True)
         target = self._path(job.job_id)
         temporary = target.with_suffix(".json.tmp")
         temporary.write_text(job.model_dump_json(indent=2) + "\n", encoding="utf-8")
@@ -40,6 +40,8 @@ class AnalysisJobRepository:
         return AnalysisJob.model_validate_json(path.read_text(encoding="utf-8"))
 
     def list(self) -> tuple[AnalysisJob, ...]:
+        if not self._jobs_dir.is_dir():
+            return ()
         return tuple(
             sorted(
                 (

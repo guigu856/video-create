@@ -18,10 +18,10 @@ _EMBEDDING_DIMENSION = 128
 class KnowledgeStore:
     def __init__(self, database_path: Path) -> None:
         self._path = database_path.resolve()
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize()
+        self._initialized = False
 
     def save(self, units: tuple[KnowledgeUnit, ...]) -> tuple[KnowledgeUnit, ...]:
+        self._ensure_initialized()
         with self._connect() as connection:
             for unit in units:
                 connection.execute(
@@ -56,13 +56,26 @@ class KnowledgeStore:
         return units
 
     def list_all(self) -> tuple[KnowledgeUnit, ...]:
+        self._ensure_initialized()
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT payload FROM knowledge_units ORDER BY knowledge_id"
             ).fetchall()
         return tuple(KnowledgeUnit.model_validate_json(row[0]) for row in rows)
 
+    def get(self, knowledge_id: str) -> KnowledgeUnit:
+        self._ensure_initialized()
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT payload FROM knowledge_units WHERE knowledge_id = ?",
+                (knowledge_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(knowledge_id)
+        return KnowledgeUnit.model_validate_json(row[0])
+
     def archive(self, knowledge_id: str) -> KnowledgeUnit:
+        self._ensure_initialized()
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT payload FROM knowledge_units WHERE knowledge_id = ?",
@@ -84,6 +97,7 @@ class KnowledgeStore:
         self,
         query: KnowledgeSearchQuery,
     ) -> tuple[KnowledgeUnit, ...]:
+        self._ensure_initialized()
         placeholders = ",".join("?" for _ in query.knowledge_types)
         sql = f"""
             SELECT DISTINCT u.payload, u.embedding
@@ -119,6 +133,7 @@ class KnowledgeStore:
         return tuple(unit for _, unit in ranked[: query.limit])
 
     def _initialize(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -151,6 +166,11 @@ class KnowledgeStore:
                 "INSERT OR REPLACE INTO index_metadata(key, value) VALUES (?, ?)",
                 ("embedding_dimension", str(_EMBEDDING_DIMENSION)),
             )
+        self._initialized = True
+
+    def _ensure_initialized(self) -> None:
+        if not self._initialized:
+            self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self._path)

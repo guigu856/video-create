@@ -18,8 +18,9 @@ ROOT = Path(__file__).parents[1]
 
 
 def _copy_fixed_content(target: Path) -> None:
-    for directory in ("rules", "schemas"):
-        shutil.copytree(ROOT / directory, target / directory)
+    (target / "rules").mkdir()
+    shutil.copy2(ROOT / "rules/main-agent.md", target / "rules/main-agent.md")
+    shutil.copytree(ROOT / "schemas", target / "schemas")
 
 
 def test_catalog_lists_fixed_versioned_content() -> None:
@@ -29,6 +30,42 @@ def test_catalog_lists_fixed_versioned_content() -> None:
 
     assert [(entry.content_id, entry.version, entry.kind, entry.uri) for entry in entries] == [
         ("rule_main_agent", "1.0.0", "rule", "video-create://rules/main-agent"),
+        (
+            "rule_reference_study_agent",
+            "1.0.0",
+            "rule",
+            "video-create://rules/reference-study-agent",
+        ),
+        (
+            "skill_audiovisual_relation_analysis",
+            "1.0.0",
+            "skill",
+            "video-create://skills/audiovisual-relation-analysis",
+        ),
+        (
+            "skill_editing_grammar_synthesis",
+            "1.0.0",
+            "skill",
+            "video-create://skills/editing-grammar-synthesis",
+        ),
+        (
+            "skill_reference_bgm_analysis",
+            "1.0.0",
+            "skill",
+            "video-create://skills/reference-bgm-analysis",
+        ),
+        (
+            "skill_reference_study",
+            "1.0.0",
+            "skill",
+            "video-create://skills/reference-study",
+        ),
+        (
+            "skill_reference_visual_analysis",
+            "1.0.0",
+            "skill",
+            "video-create://skills/reference-visual-analysis",
+        ),
         ("schema_common", "1.0.0", "schema", "video-create://schemas/common"),
         ("schema_catalog", "1.0.0", "schema", "video-create://schemas/catalog"),
         (
@@ -243,6 +280,12 @@ def test_stdio_resources_list_and_read_context() -> None:
                 assert uris == {
                     "video-create://catalog",
                     "video-create://rules/main-agent",
+                    "video-create://rules/reference-study-agent",
+                    "video-create://skills/audiovisual-relation-analysis",
+                    "video-create://skills/editing-grammar-synthesis",
+                    "video-create://skills/reference-bgm-analysis",
+                    "video-create://skills/reference-study",
+                    "video-create://skills/reference-visual-analysis",
                     "video-create://schemas/common",
                     "video-create://schemas/catalog",
                     "video-create://schemas/reference-study",
