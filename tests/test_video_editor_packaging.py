@@ -22,7 +22,7 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
     shutil.copytree(project_root / "schemas", source_root / "schemas")
     shutil.copytree(project_root / "skills", source_root / "skills")
     role_path = source_root / "rules/roles/packaging-agent.md"
-    role_path.parent.mkdir(parents=True)
+    role_path.parent.mkdir(parents=True, exist_ok=True)
     role_path.write_text(
         "---\nrole_id: packaging-agent\nversion: 1.0.0\n"
         "description: 验证角色 Rule 打包\n---\n角色规则。\n",
