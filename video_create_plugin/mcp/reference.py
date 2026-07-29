@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -31,10 +31,12 @@ def register_reference_capabilities(
         name="reference_resolve_source",
         description="解析本地文件、URL 或分享文本并固化参考媒体。",
     )
-    def reference_resolve_source(source: str) -> dict[str, Any]:
-        return _result(
-            lambda: {"source_media": runtime.source.resolve(source).model_dump(mode="json")}
-        )
+    async def reference_resolve_source(source: str) -> dict[str, Any]:
+        async def execute() -> dict[str, Any]:
+            source_media = await runtime.source.resolve_async(source)
+            return {"source_media": source_media.model_dump(mode="json")}
+
+        return await _result_async(execute)
 
     @server.tool(
         name="media_probe",
@@ -202,6 +204,24 @@ def register_reference_capabilities(
 def _result(call: Callable[[], dict[str, Any]]) -> dict[str, Any]:
     try:
         return {"ok": True, "data": call()}
+    except PluginError as error:
+        return error.to_response().model_dump(mode="json")
+    except ValidationError as error:
+        return {
+            "ok": False,
+            "error": {
+                "code": "input_invalid",
+                "message": "工具输入结构无效",
+                "details": {"validation": str(error)[:2000]},
+            },
+        }
+
+
+async def _result_async(
+    call: Callable[[], Awaitable[dict[str, Any]]],
+) -> dict[str, Any]:
+    try:
+        return {"ok": True, "data": await call()}
     except PluginError as error:
         return error.to_response().model_dump(mode="json")
     except ValidationError as error:

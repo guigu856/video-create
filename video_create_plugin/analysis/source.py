@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import shutil
@@ -46,6 +47,9 @@ class SourceMediaResolver:
         self._downloader = downloader
         self._ffprobe_binary = ffprobe_binary
         self._probe_runner = probe_runner or subprocess.run
+
+    async def resolve_async(self, source: str) -> SourceMedia:
+        return await asyncio.to_thread(self.resolve, source)
 
     def resolve(self, source: str) -> SourceMedia:
         original = source.strip()

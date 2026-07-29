@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import shutil
 import subprocess
@@ -11,6 +12,8 @@ from typing import Any
 
 import pytest
 
+from components.video_download import download_video
+from components.video_download import downloader as downloader_module
 from video_create_plugin.analysis.source import SourceMediaResolver
 from video_create_plugin.errors import PluginError
 
@@ -94,6 +97,46 @@ def test_missing_local_source_has_stable_error(tmp_path: Path) -> None:
         resolver.resolve("missing.mp4")
 
     assert error.value.code == "file_not_found"
+
+
+def test_async_resolve_isolates_sync_downloader_from_host_loop(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_download(
+        url: str,
+        output_dir: Path,
+        temporary_key: str,
+        config: object,
+        report: object,
+    ) -> downloader_module._DownloadedVideo:
+        temporary_path = output_dir / f"{temporary_key}.mp4"
+        temporary_path.write_bytes(b"video" * 1000)
+        return downloader_module._DownloadedVideo(
+            temporary_path=temporary_path,
+            platform="Douyin",
+            canonical_url="https://www.douyin.com/video/1",
+            video_id="1",
+            title="事件循环测试",
+            author=None,
+            duration_seconds=1.25,
+            published_at=None,
+        )
+
+    monkeypatch.setattr(downloader_module, "_download_douyin", fake_download)
+    resolver = SourceMediaResolver(
+        tmp_path,
+        downloader=download_video,
+        probe_runner=_probe_runner,
+    )
+
+    result = asyncio.run(
+        resolver.resolve_async("分享文本 https://v.douyin.com/event-loop-test/")
+    )
+
+    assert result.source_kind == "download"
+    assert result.source_url == "https://v.douyin.com/event-loop-test/"
+    assert result.probe.duration_us == 1_250_000
 
 
 @pytest.mark.skipif(
