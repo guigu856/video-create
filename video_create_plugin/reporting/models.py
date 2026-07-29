@@ -290,12 +290,9 @@ class ReferenceStudyReport(PluginModel):
 
 ReportFileRole = Literal[
     "structured_report",
-    "video_overview",
+    "human_report_docx",
     "bgm_analysis_json",
-    "bgm_analysis_markdown",
     "shot_analysis_json",
-    "shot_analysis_markdown",
-    "editing_grammar",
     "creation_context_projection",
     "evidence_bundle",
 ]
@@ -307,7 +304,7 @@ class ReferenceReportFile(PluginModel):
 
 
 class ReferenceReportManifest(PluginModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["2.0"] = "2.0"
     report_id: StableId
     analysis_id: StableId
     source_media_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

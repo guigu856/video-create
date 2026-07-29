@@ -104,7 +104,7 @@ def register_reference_capabilities(
 
     @server.tool(
         name="report_generate",
-        description="从 Agent 已完成的参考报告合同生成 Markdown、JSON 和文件清单。",
+        description="从 Agent 已完成的参考报告合同生成 DOCX、JSON 和文件清单。",
     )
     def report_generate(
         report: dict[str, Any],
