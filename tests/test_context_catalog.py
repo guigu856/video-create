@@ -32,48 +32,42 @@ def test_catalog_lists_fixed_versioned_content() -> None:
         ("rule_main_agent", "1.0.0", "rule", "video-create://rules/main-agent"),
         (
             "rule_reference_study_agent",
-            "1.0.0",
+            "1.1.0",
             "rule",
             "video-create://rules/reference-study-agent",
         ),
         (
             "skill_audiovisual_relation_analysis",
-            "1.0.0",
+            "1.1.0",
             "skill",
             "video-create://skills/audiovisual-relation-analysis",
         ),
         (
             "skill_editing_grammar_synthesis",
-            "1.0.0",
+            "1.1.0",
             "skill",
             "video-create://skills/editing-grammar-synthesis",
         ),
         (
             "skill_reference_bgm_analysis",
-            "1.0.0",
+            "1.1.0",
             "skill",
             "video-create://skills/reference-bgm-analysis",
         ),
         (
             "skill_reference_study",
-            "1.0.0",
+            "1.1.0",
             "skill",
             "video-create://skills/reference-study",
         ),
         (
             "skill_reference_visual_analysis",
-            "1.0.0",
+            "1.1.0",
             "skill",
             "video-create://skills/reference-visual-analysis",
         ),
         ("schema_common", "1.0.0", "schema", "video-create://schemas/common"),
         ("schema_catalog", "1.0.0", "schema", "video-create://schemas/catalog"),
-        (
-            "schema_reference_study",
-            "1.0.0",
-            "schema",
-            "video-create://schemas/reference-study",
-        ),
     ]
     assert all(len(entry.content_sha256) == 64 for entry in entries)
 
@@ -181,12 +175,6 @@ def test_catalog_discovers_role_rules_and_skills(tmp_path: Path) -> None:
         ),
         ("schema_common", "1.0.0", "schema", "video-create://schemas/common"),
         ("schema_catalog", "1.0.0", "schema", "video-create://schemas/catalog"),
-        (
-            "schema_reference_study",
-            "1.0.0",
-            "schema",
-            "video-create://schemas/reference-study",
-        ),
     ]
     assert catalog.read(entries[1].uri) == role_path.read_bytes().decode("utf-8")
     assert catalog.read(entries[2].uri) == skill_path.read_bytes().decode("utf-8")
@@ -288,7 +276,6 @@ def test_stdio_resources_list_and_read_context() -> None:
                     "video-create://skills/reference-visual-analysis",
                     "video-create://schemas/common",
                     "video-create://schemas/catalog",
-                    "video-create://schemas/reference-study",
                 }
 
                 catalog = await session.read_resource("video-create://catalog")

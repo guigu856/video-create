@@ -1,202 +1,345 @@
-"""以 SQLite 保存知识事实源和可重建的确定性文本检索投影。"""
+"""以 LanceDB 单表保存原子知识、结构化元数据和正文向量。"""
 
 from __future__ import annotations
 
-import hashlib
-import json
+import logging
 import math
-import re
-import sqlite3
+import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
-from .models import KnowledgeSearchQuery, KnowledgeUnit
+import lancedb  # type: ignore[import-untyped]
+import pyarrow as pa  # type: ignore[import-untyped]
+from filelock import FileLock
+from filelock import Timeout as FileLockTimeout
+from lancedb.index import Bitmap, BTree, LabelList  # type: ignore[import-untyped]
+from pydantic import ValidationError
 
-_EMBEDDING_MODEL = "hash_char_ngram_v1"
-_EMBEDDING_DIMENSION = 128
+from video_create_plugin.errors import PluginError
+
+from .embedding import MODEL_DIMENSION, LocalEmbeddingService
+from .models import (
+    ApplicableStage,
+    KnowledgeSearchHit,
+    KnowledgeSearchQuery,
+    KnowledgeUnit,
+    StoredKnowledgeUnit,
+)
+
+_TABLE_NAME = "knowledge_units"
+_LOGGER = logging.getLogger(__name__)
+_LOCKS_GUARD = threading.Lock()
+_WRITE_LOCKS: dict[Path, threading.RLock] = {}
 
 
 class KnowledgeStore:
-    def __init__(self, database_path: Path) -> None:
-        self._path = database_path.resolve()
-        self._initialized = False
+    def __init__(self, database_dir: Path) -> None:
+        self._database_dir = database_dir.resolve()
+        self._write_lock = _shared_lock(self._database_dir)
+        self._process_lock = FileLock(str(self._database_dir / ".write.lock"), timeout=60)
+        self._table_instance: Any | None = None
 
-    def save(self, units: tuple[KnowledgeUnit, ...]) -> tuple[KnowledgeUnit, ...]:
-        self._ensure_initialized()
-        with self._connect() as connection:
-            for unit in units:
-                connection.execute(
-                    """
-                    INSERT INTO knowledge_units(
-                        knowledge_id, payload, status, collection, knowledge_type, embedding
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(knowledge_id) DO UPDATE SET
-                        payload=excluded.payload,
-                        status=excluded.status,
-                        collection=excluded.collection,
-                        knowledge_type=excluded.knowledge_type,
-                        embedding=excluded.embedding
-                    """,
-                    (
-                        unit.knowledge_id,
-                        unit.model_dump_json(),
-                        unit.status,
-                        unit.collection,
-                        unit.knowledge_type,
-                        json.dumps(_embedding(unit.content), separators=(",", ":")),
-                    ),
-                )
-                connection.execute(
-                    "DELETE FROM knowledge_stages WHERE knowledge_id = ?",
-                    (unit.knowledge_id,),
-                )
-                connection.executemany(
-                    "INSERT INTO knowledge_stages(knowledge_id, stage) VALUES (?, ?)",
-                    ((unit.knowledge_id, stage) for stage in unit.applicable_stages),
-                )
-        return units
+    @contextmanager
+    def serialized_write(self) -> Iterator[None]:
+        with self._write_lock:
+            self._database_dir.mkdir(parents=True, exist_ok=True)
+            with self._process_access():
+                self._table_locked().checkout_latest()
+                yield
+
+    def merge(self, units: tuple[StoredKnowledgeUnit, ...]) -> None:
+        if not units:
+            return
+        rows = [unit.model_dump(mode="json") for unit in units]
+        table = self._table()
+        _drop_indices(table)
+        table.merge_insert("knowledge_id").when_matched_update_all().when_not_matched_insert_all().execute(rows)
+        _maintain_indices(table)
+
+    def repair_indices(self) -> None:
+        _maintain_indices(self._table())
 
     def list_all(self) -> tuple[KnowledgeUnit, ...]:
-        self._ensure_initialized()
-        with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT payload FROM knowledge_units ORDER BY knowledge_id"
-            ).fetchall()
-        return tuple(KnowledgeUnit.model_validate_json(row[0]) for row in rows)
+        with self._refreshed_read() as table:
+            units = tuple(_public(_stored(row)) for row in table.search().to_list())
+        return tuple(sorted(units, key=lambda unit: unit.knowledge_id))
+
+    def list_stored(self, *, where: str | None = None) -> tuple[StoredKnowledgeUnit, ...]:
+        with self._refreshed_read() as table:
+            query = table.search()
+            if where is not None:
+                query = query.where(where)
+            units = tuple(_stored(row) for row in query.to_list())
+        return tuple(sorted(units, key=lambda unit: unit.knowledge_id))
 
     def get(self, knowledge_id: str) -> KnowledgeUnit:
-        self._ensure_initialized()
-        with self._connect() as connection:
-            row = connection.execute(
-                "SELECT payload FROM knowledge_units WHERE knowledge_id = ?",
-                (knowledge_id,),
-            ).fetchone()
-        if row is None:
-            raise KeyError(knowledge_id)
-        return KnowledgeUnit.model_validate_json(row[0])
+        return _public(self.get_stored(knowledge_id))
 
-    def archive(self, knowledge_id: str) -> KnowledgeUnit:
-        self._ensure_initialized()
-        with self._connect() as connection:
-            row = connection.execute(
-                "SELECT payload FROM knowledge_units WHERE knowledge_id = ?",
-                (knowledge_id,),
-            ).fetchone()
-            if row is None:
-                raise KeyError(knowledge_id)
-            unit = KnowledgeUnit.model_validate_json(row[0]).model_copy(
-                update={"status": "archived"}
-            )
-            connection.execute(
-                "UPDATE knowledge_units SET payload = ?, status = 'archived' "
-                "WHERE knowledge_id = ?",
-                (unit.model_dump_json(), knowledge_id),
-            )
+    def get_stored(self, knowledge_id: str) -> StoredKnowledgeUnit:
+        unit = self.get_stored_optional(knowledge_id)
+        if unit is None:
+            raise KeyError(knowledge_id)
         return unit
 
-    def search_creation(
+    def get_stored_optional(self, knowledge_id: str) -> StoredKnowledgeUnit | None:
+        with self._refreshed_read() as table:
+            rows = (
+                table.search()
+                .where(f"knowledge_id = {_literal(knowledge_id)}")
+                .limit(2)
+                .to_list()
+            )
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise PluginError("knowledge_store_invalid", "知识 ID 在数据库中不唯一")
+        return _stored(rows[0])
+
+    def archive(self, knowledge_id: str) -> KnowledgeUnit:
+        with self.serialized_write():
+            unit = self.get_stored(knowledge_id)
+            archived = unit.model_copy(
+                update={"status": "archived", "updated_at_us": time.time_ns() // 1000}
+            )
+            self.merge((archived,))
+            return _public(archived)
+
+    def active_for_stage(self, stage: ApplicableStage) -> tuple[KnowledgeUnit, ...]:
+        where = f"status = 'active' AND stage = {_literal(stage)}"
+        return tuple(_public(unit) for unit in self.list_stored(where=where))
+
+    def search(
         self,
         query: KnowledgeSearchQuery,
-    ) -> tuple[KnowledgeUnit, ...]:
-        self._ensure_initialized()
-        placeholders = ",".join("?" for _ in query.knowledge_types)
-        sql = f"""
-            SELECT DISTINCT u.payload, u.embedding
-            FROM knowledge_units u
-            JOIN knowledge_stages s ON s.knowledge_id = u.knowledge_id
-            WHERE u.status = 'active'
-              AND u.collection = 'creation_knowledge'
-              AND s.stage = ?
-              AND u.knowledge_type IN ({placeholders})
-        """
-        parameters = (query.stage, *query.knowledge_types)
-        with self._connect() as connection:
-            rows = connection.execute(sql, parameters).fetchall()
-        requested_embedding = _embedding(query.text) if query.text.strip() else None
-        ranked: list[tuple[float, KnowledgeUnit]] = []
-        for payload, embedding_json in rows:
-            unit = KnowledgeUnit.model_validate_json(payload)
-            if not _matches_tags(unit.video_type_tags, query.video_type_tags):
-                continue
-            if not _matches_tags(unit.technique_tags, query.technique_tags):
-                continue
-            if not _matches_tags(unit.music_layer_tags, query.music_layer_tags):
-                continue
-            if query.energy_phase is not None and unit.energy_phase != query.energy_phase:
-                continue
-            score = (
-                _cosine(requested_embedding, json.loads(embedding_json))
-                if requested_embedding is not None
-                else 0
+        query_vector: tuple[float, ...],
+    ) -> tuple[KnowledgeSearchHit, ...]:
+        if len(query_vector) != MODEL_DIMENSION or not all(
+            math.isfinite(value) for value in query_vector
+        ):
+            raise PluginError("embedding_vector_invalid", "查询向量维度无效")
+        filters = ["status = 'active'", f"stage = {_literal(query.stage)}"]
+        if query.video_types:
+            values = ", ".join(_literal(value) for value in query.video_types)
+            filters.append(f"array_has_any(video_types, [{values}])")
+        if query.knowledge_types:
+            values = ", ".join(_literal(value) for value in query.knowledge_types)
+            filters.append(f"knowledge_type IN ({values})")
+        with self._refreshed_read() as table:
+            rows = (
+                table.search(list(query_vector), vector_column_name="vector")
+                .distance_type("cosine")
+                .where(" AND ".join(filters), prefilter=True)
+                .limit(query.limit)
+                .to_list()
             )
-            ranked.append((score, unit))
-        ranked.sort(key=lambda item: (-item[0], item[1].knowledge_id))
-        return tuple(unit for _, unit in ranked[: query.limit])
-
-    def _initialize(self) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as connection:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS knowledge_units(
-                    knowledge_id TEXT PRIMARY KEY,
-                    payload TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    collection TEXT NOT NULL,
-                    knowledge_type TEXT NOT NULL,
-                    embedding TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS knowledge_stages(
-                    knowledge_id TEXT NOT NULL,
-                    stage TEXT NOT NULL,
-                    PRIMARY KEY(knowledge_id, stage),
-                    FOREIGN KEY(knowledge_id) REFERENCES knowledge_units(knowledge_id)
-                        ON DELETE CASCADE
-                );
-                CREATE TABLE IF NOT EXISTS index_metadata(
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL
-                );
-                """
+        hits: list[KnowledgeSearchHit] = []
+        for row in rows:
+            distance = float(row.pop("_distance"))
+            unit = _public(_stored(row))
+            hits.append(
+                KnowledgeSearchHit.model_validate(
+                    {
+                        **unit.model_dump(mode="json"),
+                        "similarity": max(-1.0, min(1.0, 1 - distance)),
+                    }
+                )
             )
-            connection.execute(
-                "INSERT OR REPLACE INTO index_metadata(key, value) VALUES (?, ?)",
-                ("embedding_model", _EMBEDDING_MODEL),
+        return tuple(hits)
+
+    def prepare_embedding_rebuild(
+        self,
+        embedding: LocalEmbeddingService,
+    ) -> tuple[StoredKnowledgeUnit, ...]:
+        units = self.list_stored()
+        if not units:
+            return ()
+        current = embedding.metadata
+        spaces = {
+            (
+                unit.embedding_model,
+                unit.embedding_version,
+                unit.embedding_sha256,
+                unit.embedding_dimension,
             )
-            connection.execute(
-                "INSERT OR REPLACE INTO index_metadata(key, value) VALUES (?, ?)",
-                ("embedding_dimension", str(_EMBEDDING_DIMENSION)),
+            for unit in units
+        }
+        target = (current.model, current.version, current.sha256, current.dimension)
+        if spaces == {target}:
+            return ()
+        if len(spaces) != 1:
+            raise PluginError("embedding_space_invalid", "知识表包含多个向量空间")
+        vectors = embedding.embed_documents(tuple(unit.content for unit in units))
+        if len(vectors) != len(units):
+            raise PluginError("embedding_vector_invalid", "重建向量数量与知识数量不一致")
+        return tuple(
+            unit.model_copy(
+                update={
+                    "embedding_model": current.model,
+                    "embedding_version": current.version,
+                    "embedding_sha256": current.sha256,
+                    "embedding_dimension": current.dimension,
+                    "vector": vector,
+                    "updated_at_us": time.time_ns() // 1000,
+                }
             )
-        self._initialized = True
+            for unit, vector in zip(units, vectors, strict=True)
+        )
 
-    def _ensure_initialized(self) -> None:
-        if not self._initialized:
-            self._initialize()
+    def ensure_embedding_space(self, embedding: LocalEmbeddingService) -> None:
+        self.merge(self.prepare_embedding_rebuild(embedding))
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self._path)
-        connection.execute("PRAGMA foreign_keys = ON")
-        return connection
+    def _table(self) -> Any:
+        if self._table_instance is not None:
+            return self._table_instance
+        with self._write_lock:
+            self._database_dir.mkdir(parents=True, exist_ok=True)
+            with self._process_access():
+                return self._table_locked()
+
+    def _table_locked(self) -> Any:
+        if self._table_instance is None:
+            database = lancedb.connect(self._database_dir)
+            if _TABLE_NAME in database.list_tables().tables:
+                table = database.open_table(_TABLE_NAME)
+                if not table.schema.equals(_schema(), check_metadata=False):
+                    raise PluginError(
+                        "knowledge_store_invalid",
+                        "知识表结构与当前合同不一致",
+                    )
+            else:
+                table = database.create_table(_TABLE_NAME, schema=_schema())
+            _ensure_indices(table)
+            self._table_instance = table
+        return self._table_instance
+
+    @contextmanager
+    def _refreshed_read(self) -> Iterator[Any]:
+        with self._write_lock:
+            self._database_dir.mkdir(parents=True, exist_ok=True)
+            with self._process_access():
+                table = self._table_locked()
+                table.checkout_latest()
+                yield table
+
+    @contextmanager
+    def _process_access(self) -> Iterator[None]:
+        try:
+            with self._process_lock:
+                yield
+        except FileLockTimeout as error:
+            raise PluginError(
+                "knowledge_store_busy",
+                "知识库正在处理另一项读写操作",
+            ) from error
 
 
-def _matches_tags(actual: tuple[str, ...], requested: tuple[str, ...]) -> bool:
-    return not requested or set(requested).issubset(actual)
-
-
-def _embedding(text: str) -> list[float]:
-    normalized = re.sub(r"\s+", " ", text.lower()).strip()
-    characters = [character for character in normalized if not character.isspace()]
-    tokens = re.findall(r"\w+", normalized)
-    tokens.extend(
-        "".join(characters[index : index + 2]) for index in range(max(0, len(characters) - 1))
+def _schema() -> pa.Schema:
+    evidence = pa.struct(
+        [
+            pa.field("resource_uri", pa.string(), nullable=False),
+            pa.field("start_ms", pa.int64()),
+            pa.field("end_ms", pa.int64()),
+        ]
     )
-    vector = [0.0] * _EMBEDDING_DIMENSION
-    for token in tokens:
-        digest = hashlib.sha256(token.encode()).digest()
-        index = int.from_bytes(digest[:4], "big") % _EMBEDDING_DIMENSION
-        vector[index] += 1 if digest[4] & 1 else -1
-    magnitude = math.sqrt(sum(value * value for value in vector))
-    return [value / magnitude for value in vector] if magnitude else vector
+    provenance = pa.struct(
+        [
+            pa.field("analysis_id", pa.string(), nullable=False),
+            pa.field("source_media_sha256", pa.string(), nullable=False),
+            pa.field("analysis_version", pa.string(), nullable=False),
+        ]
+    )
+    return pa.schema(
+        [
+            pa.field("knowledge_id", pa.string(), nullable=False),
+            pa.field("stage", pa.string(), nullable=False),
+            pa.field("knowledge_type", pa.string(), nullable=False),
+            pa.field("content", pa.string(), nullable=False),
+            pa.field(
+                "video_types",
+                pa.list_(pa.field("item", pa.string(), nullable=False)),
+                nullable=False,
+            ),
+            pa.field(
+                "evidence_refs",
+                pa.list_(pa.field("item", evidence, nullable=False)),
+                nullable=False,
+            ),
+            pa.field(
+                "provenances",
+                pa.list_(pa.field("item", provenance, nullable=False)),
+                nullable=False,
+            ),
+            pa.field("confidence", pa.string(), nullable=False),
+            pa.field("status", pa.string(), nullable=False),
+            pa.field("embedding_model", pa.string(), nullable=False),
+            pa.field("embedding_version", pa.string(), nullable=False),
+            pa.field("embedding_sha256", pa.string(), nullable=False),
+            pa.field("embedding_dimension", pa.int32(), nullable=False),
+            pa.field(
+                "vector",
+                pa.list_(pa.float32(), MODEL_DIMENSION),
+                nullable=False,
+            ),
+            pa.field("created_at_us", pa.int64(), nullable=False),
+            pa.field("updated_at_us", pa.int64(), nullable=False),
+        ]
+    )
 
 
-def _cosine(left: list[float], right: list[float]) -> float:
-    return sum(first * second for first, second in zip(left, right))
+def _ensure_indices(table: Any) -> bool:
+    existing = {index.name for index in table.list_indices()}
+    created = False
+    for column, config in (
+        ("knowledge_id", BTree()),
+        ("stage", Bitmap()),
+        ("knowledge_type", Bitmap()),
+        ("status", Bitmap()),
+        ("video_types", LabelList()),
+    ):
+        name = f"{column}_idx"
+        if name not in existing:
+            table.create_index(column, config=config, name=name, replace=False)
+            created = True
+    return created
+
+
+def _drop_indices(table: Any) -> None:
+    for index in table.list_indices():
+        table.drop_index(index.name)
+
+
+def _maintain_indices(table: Any) -> None:
+    try:
+        if _ensure_indices(table):
+            table.optimize()
+    except Exception as error:
+        _LOGGER.warning("知识索引维护失败: %s", type(error).__name__)
+
+
+def _stored(row: dict[str, Any]) -> StoredKnowledgeUnit:
+    payload = dict(row)
+    payload.pop("_distance", None)
+    vector = payload.get("vector")
+    to_list = getattr(vector, "tolist", None)
+    if callable(to_list):
+        payload["vector"] = to_list()
+    try:
+        return StoredKnowledgeUnit.model_validate(payload)
+    except (ValidationError, TypeError, ValueError) as error:
+        raise PluginError("knowledge_vector_invalid", "知识行或向量结构无效") from error
+
+
+def _public(unit: StoredKnowledgeUnit) -> KnowledgeUnit:
+    return KnowledgeUnit.model_validate(unit.model_dump(exclude={"vector"}))
+
+
+def _literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _shared_lock(path: Path) -> threading.RLock:
+    with _LOCKS_GUARD:
+        return _WRITE_LOCKS.setdefault(path, threading.RLock())

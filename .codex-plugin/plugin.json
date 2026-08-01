@@ -1,16 +1,16 @@
 {
   "name": "video-create",
-  "version": "0.1.0",
-  "description": "通过分阶段合同完成参考学习、视频创作和确定性剪辑执行。",
+  "version": "0.1.0+codex.20260801113109",
+  "description": "\u901a\u8fc7\u5206\u9636\u6bb5\u5408\u540c\u5b8c\u6210\u53c2\u8003\u5b66\u4e60\u3001\u89c6\u9891\u521b\u4f5c\u548c\u786e\u5b9a\u6027\u526a\u8f91\u6267\u884c\u3002",
   "author": {
     "name": "video-create"
   },
   "mcpServers": "./.mcp.json",
   "skills": "./skills/",
   "interface": {
-    "displayName": "视频创作",
-    "shortDescription": "分阶段完成参考学习与视频创作",
-    "longDescription": "使用共享规则、技能和本地 MCP 组件完成参考视频学习、创作规划、剪辑执行与成片检查。",
+    "displayName": "\u89c6\u9891\u521b\u4f5c",
+    "shortDescription": "\u5206\u9636\u6bb5\u5b8c\u6210\u53c2\u8003\u5b66\u4e60\u4e0e\u89c6\u9891\u521b\u4f5c",
+    "longDescription": "\u4f7f\u7528\u5171\u4eab\u89c4\u5219\u3001\u6280\u80fd\u548c\u672c\u5730 MCP \u7ec4\u4ef6\u5b8c\u6210\u53c2\u8003\u89c6\u9891\u5b66\u4e60\u3001\u521b\u4f5c\u89c4\u5212\u3001\u526a\u8f91\u6267\u884c\u4e0e\u6210\u7247\u68c0\u67e5\u3002",
     "developerName": "video-create",
     "category": "Productivity",
     "capabilities": [
@@ -18,8 +18,8 @@
       "Write"
     ],
     "defaultPrompt": [
-      "学习这个参考视频并整理可复用的剪辑规律。",
-      "从一个想法开始，分阶段制作一条视频。"
+      "\u5b66\u4e60\u8fd9\u4e2a\u53c2\u8003\u89c6\u9891\u5e76\u6574\u7406\u53ef\u590d\u7528\u7684\u526a\u8f91\u89c4\u5f8b\u3002",
+      "\u4ece\u4e00\u4e2a\u60f3\u6cd5\u5f00\u59cb\uff0c\u5206\u9636\u6bb5\u5236\u4f5c\u4e00\u6761\u89c6\u9891\u3002"
     ]
   }
 }

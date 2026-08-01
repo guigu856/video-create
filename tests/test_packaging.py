@@ -25,3 +25,11 @@ def test_role_rules_and_skills_are_discovered_for_packaging(tmp_path: Path) -> N
         "share/video-create/skills/example-skill",
         ["skills/example-skill/SKILL.md"],
     ) in data_files
+
+
+def test_obsolete_reference_report_schema_is_not_packaged() -> None:
+    namespace = runpy.run_path(str(ROOT / "setup.py"), run_name="video_create_setup")
+    data_files = cast(DataFilesBuilder, namespace["_data_files"])(ROOT)
+
+    packaged = {path for _, paths in data_files for path in paths}
+    assert "schemas/reference-study.schema.json" not in packaged

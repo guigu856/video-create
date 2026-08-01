@@ -12,7 +12,6 @@ def _data_files(root: Path) -> list[tuple[str, list[str]]]:
             [
                 "schemas/catalog.schema.json",
                 "schemas/common.schema.json",
-                "schemas/reference-study.schema.json",
             ],
         ),
         ("share/video-create/skills", ["skills/README.md"]),

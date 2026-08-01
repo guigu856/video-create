@@ -9,7 +9,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from video_create_plugin import __version__
-from video_create_plugin.mcp.server import create_server
+from video_create_plugin.mcp.server import _default_data_root, create_server
 
 ROOT = Path(__file__).parents[1]
 
@@ -23,14 +23,22 @@ def test_host_manifests_share_plugin_identity() -> None:
     assert codex["version"] == claude["version"] == __version__
     assert codex["mcpServers"] == claude["mcpServers"] == "./.mcp.json"
     assert codex["skills"] == claude["skills"] == "./skills/"
-    assert mcp_config["mcpServers"]["video-create"]["args"] == [
+    server_config = mcp_config["mcpServers"]["video-create"]
+    assert server_config["args"] == [
         "run",
         "video-create-mcp",
     ]
+    assert server_config["env"] == {
+        "PLAYWRIGHT_BROWSERS_PATH": r"D:\ai-cache\ms-playwright",
+    }
 
 
 def test_server_has_stable_identity() -> None:
     assert create_server().name == "video-create"
+
+
+def test_default_data_root_is_independent_of_plugin_install_directory() -> None:
+    assert _default_data_root() == Path.home() / ".video-create"
 
 
 def test_stdio_server_initializes() -> None:

@@ -81,6 +81,18 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
         assert any(
             name.endswith("share/video-create/schemas/catalog.schema.json") for name in names
         )
+        for model_file in (
+            "config.json",
+            "model_optimized.onnx",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "MODEL_METADATA.json",
+            "LICENSE",
+        ):
+            assert (
+                f"video_create_plugin/assets/models/bge-small-zh-v1.5/{model_file}" in names
+            )
         site_packages = tmp_path / "site-packages"
         archive.extractall(site_packages)
 
@@ -91,11 +103,17 @@ def test_wheel_contains_web_assets_and_serves_homepage_after_extraction(
             (
                 "import sys; from pathlib import Path; "
                 f"sys.path.insert(0, {str(site_packages)!r}); "
+                "import os; "
+                f"os.environ['HF_HOME']={str(tmp_path / 'empty-hf')!r}; "
+                f"os.environ['FASTEMBED_CACHE_PATH']={str(tmp_path / 'empty-fastembed')!r}; "
+                "os.environ['HF_HUB_OFFLINE']='1'; "
                 "from fastapi.testclient import TestClient; "
                 "from components.video_editor.api import create_app; "
+                "from video_create_plugin.knowledge.embedding import LocalEmbeddingService; "
                 f"response=TestClient(create_app(Path({str(tmp_path / 'data')!r}))).get('/'); "
                 "assert response.status_code == 200; "
-                "assert '本地视频剪辑器' in response.text"
+                "assert '本地视频剪辑器' in response.text; "
+                "assert len(LocalEmbeddingService().embed_query('离线模型验证')) == 512"
             ),
         ],
         cwd=tmp_path,

@@ -6,7 +6,10 @@
         "run",
         "video-create-mcp"
       ],
-      "cwd": "."
+      "cwd": ".",
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "D:\\ai-cache\\ms-playwright"
+      }
     }
   }
 }

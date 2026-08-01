@@ -1,10 +1,10 @@
-"""参考来源、媒体探测与分析任务的稳定数据合同。"""
+"""参考来源、媒体探测与确定性分析证据的稳定数据合同。"""
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from video_create_plugin.contracts import FileRef, PluginModel, StableId
+from video_create_plugin.contracts import FileRef, PluginModel, StableId, TimeRangeUs
 
 
 class MediaStream(PluginModel):
@@ -33,3 +33,40 @@ class SourceMedia(PluginModel):
     source_url: str | None = None
     file: FileRef
     probe: MediaProbe
+
+
+class EvidenceEntry(PluginModel):
+    evidence_id: StableId
+    evidence_type: Literal[
+        "frame",
+        "contact_sheet",
+        "frame_index",
+        "visual_signals",
+        "boundary_candidates",
+        "audio_pcm",
+        "waveform",
+        "waveform_visualization",
+        "audio_signals",
+        "refinement",
+    ]
+    file: FileRef
+    time_range: TimeRangeUs | None = None
+    fact_status: Literal["measured", "algorithm_candidate"]
+    algorithm_version: str | None = Field(default=None, min_length=1)
+
+
+class EvidenceBundle(PluginModel):
+    analysis_id: StableId
+    source_media_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    analysis_version: str = Field(min_length=1)
+    entries: tuple[EvidenceEntry, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def entries_are_unique(self) -> "EvidenceBundle":
+        evidence_ids = [entry.evidence_id for entry in self.entries]
+        paths = [entry.file.path for entry in self.entries]
+        if len(evidence_ids) != len(set(evidence_ids)):
+            raise ValueError("EvidenceBundle evidence_id 必须唯一")
+        if len(paths) != len(set(paths)):
+            raise ValueError("EvidenceBundle 文件路径必须唯一")
+        return self

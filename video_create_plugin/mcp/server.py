@@ -23,7 +23,11 @@ def create_server(
     )
     server._mcp_server.version = __version__
     active_content_root = content_root or _environment_path("VIDEO_CREATE_CONTENT_ROOT")
-    active_workspace = workspace_root or _environment_path("VIDEO_CREATE_WORKSPACE") or Path.cwd()
+    active_workspace = (
+        workspace_root
+        or _environment_path("VIDEO_CREATE_WORKSPACE")
+        or _default_data_root()
+    )
     register_context_resources(server, ContextCatalog(active_content_root))
     register_reference_capabilities(server, ReferenceRuntime(active_workspace))
     return server
@@ -32,6 +36,10 @@ def create_server(
 def _environment_path(name: str) -> Path | None:
     value = os.environ.get(name)
     return Path(value) if value else None
+
+
+def _default_data_root() -> Path:
+    return Path.home() / ".video-create"
 
 
 mcp = create_server()

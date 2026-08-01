@@ -4,21 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "video-create-components"
-version = "0.1.0"
+version = "0.1.0+codex.20260801113109"
 description = "供 Agent 调用的视频创作组件"
 requires-python = ">=3.11"
 dependencies = [
     "beautifulsoup4>=4.12,<5",
+    "fastembed>=0.8,<0.9",
     "fastapi>=0.115,<1",
     "httpx>=0.27,<1",
+    "lancedb>=0.36,<0.37",
     "mcp>=1,<2",
     "playwright>=1.60,<2",
     "pydantic>=2.9,<3",
     "pyyaml>=6,<7",
-    "python-docx>=1.2,<2",
     "python-multipart>=0.0.20,<1",
     "uvicorn>=0.34,<1",
     "yt-dlp>=2026.6.9",
+    "filelock>=3.16,<4",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +44,7 @@ include = ["components*", "video_create_plugin*"]
 
 [tool.setuptools.package-data]
 "components.video_editor" = ["web/*"]
+"video_create_plugin" = ["assets/models/bge-small-zh-v1.5/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

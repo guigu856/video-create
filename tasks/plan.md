@@ -72,16 +72,19 @@ domain services / repositories / deterministic components
 
 反向 import 由架构测试拦截。
 
-### 3.3 冻结合同
+### 3.3 Agent-first 轻状态
 
-每个阶段先冻结输入输出、错误码和版本，再实现行为。下游只消费已冻结合同，不反向修改上游
-产物。
+- Agent 保存任务类型、当前阶段、临时判断和用户确认。
+- Plugin 不建立创作任务状态机。
+- 后续工具必须读取的结果使用项目文件交接。
+- Plugin 只持久化可复用知识、分析证据和长任务 Job 状态。
+- 下游不擅自修改用户已经确认的上游结果。
 
 ### 3.4 最小模块
 
 - 一个模块只承担一个领域职责。
 - MCP adapter 不持有业务状态。
-- repository 不做工作流决策。
+- repository 只负责知识和 Job 数据读写。
 - component 不依赖 MCP、rules、skills 或宿主。
 - 不提前抽象尚未出现的第二种实现。
 - 不一次创建所有未来模块的空壳。
@@ -106,6 +109,8 @@ domain services / repositories / deterministic components
 - 不实现管理后台。
 - 多用户和远程服务不在本次范围内。
 - 不实现分布式任务调度。
+- 不持久化创作任务、阶段、批准、冻结和失效传播状态。
+- 不为普通项目文件建立通用 Artifact 包装。
 - 不一次性实现三类创作任务和全部引擎能力。
 - 不把 Agent 推理写入组件或 MCP Server。
 - 不把 rules、skills 和全部历史知识一次性加载。
@@ -123,43 +128,37 @@ Phase 0 受控起点
           → 5 Context Catalog 最小闭环
 
 Phase 1 参考学习纵向闭环
-  6 工作流领域模型
-    → 7 SQLite + 对象库
-      → 8 阶段状态机
-        → 9 FreezeRecord 与 stale
-          → 10 StageEnvelope 与 access handle
-            → 11 Workflow/Context MCP
-  12 来源解析与探测
-    → 13 视频证据
-    → 14 音频证据
-      → 15 分析 Job
-        → 16 报告合同与校验
-          → 17 报告生成与 Artifact 清单
-            → 18 知识发布与检索
-              → 19 reference_study 真实闭环
+  6 来源解析与探测
+    → 7 视频证据
+    → 8 音频证据
+      → 9 分析 Job
+        → 10 EvidenceBundle 与稳定数据根
+          → 11 LanceDB 原子知识发布
+            → 12 实时类型汇总与离线语义检索
+              → 13 reference_study 真实闭环
 
 Phase 2 创作与执行闭环
-  20 三阶段创作合同
-    → 21 图片/视频素材准备
-    → 22 BGM 准备
-      → 23 PreparationPackageManifest
-        → 24 EditingSpecification + ActionSpec
-          → 25 Capability Registry + Preflight
-            → 26 确定性编译 + SpecTraceMap
-              → 27 Editor/Render MCP 薄映射
-                → 28 RenderInspection + ExecutionManifest
-                  → 29 original_creation 真实闭环
-                  → 30 reference_guided_creation 真实闭环
-                    → 31 第二宿主冒烟
+  14 三阶段创作合同
+    → 15 图片/视频素材准备
+    → 16 BGM 准备
+      → 17 PreparationPackageManifest
+        → 18 EditingSpecification + ActionSpec
+          → 19 Capability Registry + Preflight
+            → 20 确定性编译 + SpecTraceMap
+              → 21 Editor/Render MCP 薄映射
+                → 22 RenderInspection + ExecutionManifest
+                  → 23 original_creation 真实闭环
+                  → 24 reference_guided_creation 真实闭环
+                    → 25 第二宿主冒烟
 
 Phase 3 引擎能力逐项扩展
-  32-33 关键帧与缓动
-    → 34-35 转场与效果作用域
-      → 36-37 速度变化
-        → 38-39 遮罩与裁切动画
-          → 40 音频自动化与 ducking
-            → 41 Composition 与跨镜头延续
-              → 42 统一预览/导出一致性框架
+  26-27 关键帧与缓动
+    → 28-29 转场与效果作用域
+      → 30-31 速度变化
+        → 32-33 遮罩与裁切动画
+          → 34 音频自动化与 ducking
+            → 35 Composition 与跨镜头延续
+              → 36 统一预览/导出一致性框架
 ```
 
 ## 6. 阶段任务
@@ -184,20 +183,14 @@ Phase 3 引擎能力逐项扩展
 
 ### Phase 1：参考学习纵向闭环
 
-- [ ] Task 6：定义 TaskRun、StageRun、ArtifactEnvelope
-- [ ] Task 7：实现 SQLite repository 与内容寻址对象库
-- [ ] Task 8：实现参考学习阶段状态机
-- [ ] Task 9：实现批准、冻结闭包和 stale 传播
-- [ ] Task 10：实现 StageEnvelope 与 stage access handle
-- [ ] Task 11：暴露 Workflow/Context MCP Resources 与 Tools
-- [ ] Task 12：实现参考来源解析、media probe 与源文件固化
-- [ ] Task 13：实现确定性视频分析证据
-- [ ] Task 14：实现确定性音频分析证据
-- [ ] Task 15：实现可恢复的分析 Job
-- [ ] Task 16：定义参考报告与 EvidenceBundle 合同
-- [ ] Task 17：实现报告生成、校验和主 Artifact 清单
-- [ ] Task 18：实现批准后知识发布与阶段过滤检索
-- [ ] Task 19：完成 Codex `reference_study` 真实闭环
+- [x] Task 6：实现参考来源解析、media probe 与源文件固化
+- [x] Task 7：实现确定性视频分析证据
+- [x] Task 8：实现确定性音频分析证据
+- [x] Task 9：实现可恢复的分析 Job
+- [x] Task 10：收拢 EvidenceBundle 与稳定数据根
+- [x] Task 11：实现 LanceDB 单库原子知识发布
+- [x] Task 12：实现实时类型汇总与离线中文语义检索
+- [ ] Task 13：完成 Codex `reference_study` 真实闭环
 
 ### Checkpoint B：参考学习可真实使用
 
@@ -205,30 +198,30 @@ Phase 3 引擎能力逐项扩展
 - [ ] 主镜头区间覆盖全片且使用真实 PTS。
 - [ ] 所有重要结论引用有效证据。
 - [ ] 用户确认前不发布共享知识。
-- [ ] 重开上游后旧 access handle 失效，下游标记 stale。
-- [ ] Codex 完成一次真实参考学习并生成可打开报告。
+- [ ] MCP Server 重启后已发布知识和已完成分析仍可读取。
+- [ ] Codex 完成一次真实参考学习并在上下文交付六章文档。
 - [ ] 人工确认 Phase 1 后进入创作流程。
 
 ### Phase 2：创作与执行闭环
 
-- [ ] Task 20：定义三阶段创作产物与边界校验
-- [ ] Task 21：实现图片/视频素材获取和预处理纵向切片
-- [ ] Task 22：实现 BGM 获取、分析和 BgmPackage
-- [ ] Task 23：实现 PreparationPackageManifest 与阶段二冻结
-- [ ] Task 24：实现 EditingSpecification 与严格 ActionSpec
-- [ ] Task 25：实现版本化 Capability Registry 与 Preflight
-- [ ] Task 26：实现 EditorProject 与 SpecTraceMap 确定性编译
-- [ ] Task 27：实现 Editor/Render MCP 薄映射
-- [ ] Task 28：实现 RenderInspection 与 ExecutionManifest
-- [ ] Task 29：完成 `original_creation` 真实闭环
-- [ ] Task 30：完成 `reference_guided_creation` 真实闭环
-- [ ] Task 31：完成 Claude Code 第二宿主冒烟
+- [ ] Task 14：定义三阶段创作产物与边界校验
+- [ ] Task 15：实现图片/视频素材获取和预处理纵向切片
+- [ ] Task 16：实现 BGM 获取、分析和 BgmPackage
+- [ ] Task 17：实现 PreparationPackageManifest
+- [ ] Task 18：实现 EditingSpecification 与严格 ActionSpec
+- [ ] Task 19：实现版本化 Capability Registry 与 Preflight
+- [ ] Task 20：实现 EditorProject 与 SpecTraceMap 确定性编译
+- [ ] Task 21：实现 Editor/Render MCP 薄映射
+- [ ] Task 22：实现 RenderInspection 与 ExecutionManifest
+- [ ] Task 23：完成 `original_creation` 真实闭环
+- [ ] Task 24：完成 `reference_guided_creation` 真实闭环
+- [ ] Task 25：完成 Claude Code 第二宿主冒烟
 
 ### Checkpoint C：三类任务形成完整闭环
 
 - [ ] 阶段一不包含具体素材和执行参数。
 - [ ] 阶段二不设计最终时间线。
-- [ ] 阶段三只引用已冻结素材和 BGM。
+- [ ] 阶段三只引用用户确认且实际存在的素材和 BGM 文件。
 - [ ] 每个 ActionSpec 都有 capability 结论。
 - [ ] 能力齐备时每个 action_id 都有 TraceMap。
 - [ ] 缺口场景只生成 CapabilityGapReport。
@@ -238,17 +231,17 @@ Phase 3 引擎能力逐项扩展
 
 ### Phase 3：引擎能力逐项扩展
 
-- [ ] Task 32：收口现有关键帧与缓动领域合同
-- [ ] Task 33：补齐关键帧预览、FFmpeg 和 ActionSpec 闭环
-- [ ] Task 34：收口现有转场与效果作用域合同
-- [ ] Task 35：补齐转场预览、FFmpeg 和 ActionSpec 闭环
-- [ ] Task 36：速度变化领域合同
-- [ ] Task 37：速度预览、音频和 FFmpeg 闭环
-- [ ] Task 38：遮罩与裁切动画领域合同
-- [ ] Task 39：遮罩预览、FFmpeg 和 ActionSpec 闭环
-- [ ] Task 40：音量包络、淡入淡出与 ducking 闭环
-- [ ] Task 41：Composition 与跨镜头延续闭环
-- [ ] Task 42：统一预览帧与导出帧一致性框架
+- [ ] Task 26：收口现有关键帧与缓动领域合同
+- [ ] Task 27：补齐关键帧预览、FFmpeg 和 ActionSpec 闭环
+- [ ] Task 28：收口现有转场与效果作用域合同
+- [ ] Task 29：补齐转场预览、FFmpeg 和 ActionSpec 闭环
+- [ ] Task 30：速度变化领域合同
+- [ ] Task 31：速度预览、音频和 FFmpeg 闭环
+- [ ] Task 32：遮罩与裁切动画领域合同
+- [ ] Task 33：遮罩预览、FFmpeg 和 ActionSpec 闭环
+- [ ] Task 34：音量包络、淡入淡出与 ducking 闭环
+- [ ] Task 35：Composition 与跨镜头延续闭环
+- [ ] Task 36：统一预览帧与导出帧一致性框架
 
 ### Checkpoint D：引擎能力闭合
 
@@ -268,6 +261,7 @@ Phase 3 引擎能力逐项扩展
 - 完整 pytest、Ruff、mypy 保持通过。
 - 新增公共合同同步 schema 和文档。
 - 没有临时兼容路径、无用抽象和对话痕迹。
+- 没有创作任务状态机、阶段访问令牌和通用 Artifact 包装。
 - 交接列出文件、原因、验证、风险和下一任务。
 
 ## 8. 阶段外风险
@@ -276,6 +270,7 @@ Phase 3 引擎能力逐项扩展
 | :-- | :-- |
 | 当前工作区混合源码与运行产物 | 首任务分类盘点；源码、测试和文档进入主基线，output 保留为本地证据 |
 | 再次形成一步到位的大模块 | 每个任务限制为一个合同或一个纵向切片 |
+| Agent 上下文中断后信息不足 | 读取用户保存的项目文件重新建立上下文，不复制一套工作流状态 |
 | MCP Handler 堆积业务逻辑 | 架构测试限制 import，Handler 只映射 application service |
 | schema 与模型漂移 | 每个公共模型生成/校验 schema，并加入合同测试 |
 | 测试依赖历史 output | 测试只使用受控夹具和临时目录 |
@@ -285,5 +280,4 @@ Phase 3 引擎能力逐项扩展
 
 ## 9. 执行入口
 
-计划确认后只执行 Task 1。Task 1 在当前工作区原地完成验证和主基线提交，再开始 Task 2；
-不批量启动后续任务。
+从 `tasks/todo.md` 中第一个未完成任务继续执行，不批量启动后续任务。

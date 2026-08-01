@@ -245,15 +245,22 @@ class VideoAnalysisService:
                 "-frames:v",
                 "1",
                 str(path),
-            ]
+            ],
+            timeout_seconds=max(60, frame_count * 2),
         )
         return path
 
-    def _run_ffmpeg(self, args: list[str], *, binary: bool = False) -> bytes:
+    def _run_ffmpeg(
+        self,
+        args: list[str],
+        *,
+        binary: bool = False,
+        timeout_seconds: int = 60,
+    ) -> bytes:
         completed = subprocess.run(
             [self._ffmpeg_binary, "-v", "error", "-y", *args],
             capture_output=True,
-            timeout=60,
+            timeout=timeout_seconds,
             check=False,
         )
         if completed.returncode != 0:

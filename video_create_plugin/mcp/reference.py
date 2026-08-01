@@ -1,4 +1,4 @@
-"""把参考分析、报告和确认后知识发布映射为薄 MCP Tools 与 Resources。"""
+"""把参考分析证据和确认后的知识操作映射为薄 MCP Tools 与 Resources。"""
 
 from __future__ import annotations
 
@@ -6,27 +6,23 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
+from video_create_plugin.analysis.evidence import build_evidence_bundle
 from video_create_plugin.analysis.jobs import AnalysisJob
 from video_create_plugin.analysis.models import SourceMedia
 from video_create_plugin.application.reference_runtime import ReferenceRuntime
-from video_create_plugin.contracts import FileRef, TimeRangeUs
+from video_create_plugin.contracts import TimeRangeUs
 from video_create_plugin.errors import PluginError
 from video_create_plugin.knowledge.models import (
+    ApplicableStage,
+    KnowledgePublishRequest,
     KnowledgeSearchQuery,
     KnowledgeUnitDraft,
-    PublicationRequest,
 )
-from video_create_plugin.reporting.evidence import build_evidence_bundle
-from video_create_plugin.reporting.models import ReferenceStudyReport
-from video_create_plugin.reporting.validator import validate_reference_report
 
 
-def register_reference_capabilities(
-    server: FastMCP,
-    runtime: ReferenceRuntime,
-) -> None:
+def register_reference_capabilities(server: FastMCP, runtime: ReferenceRuntime) -> None:
     @server.tool(
         name="reference_resolve_source",
         description="解析本地文件、URL 或分享文本并固化参考媒体。",
@@ -91,68 +87,31 @@ def register_reference_capabilities(
         )
 
     @server.tool(
-        name="analysis_validate_artifact",
-        description="校验参考报告时间线、证据闭包、置信度与结构。",
+        name="knowledge_list_stage_types",
+        description="实时汇总指定阶段 active 知识中的视频类型和知识类型。",
     )
-    def analysis_validate_artifact(report: dict[str, Any]) -> dict[str, Any]:
+    def knowledge_list_stage_types(stage: str) -> dict[str, Any]:
         return _result(
             lambda: {
-                "report": validate_reference_report(
-                    ReferenceStudyReport.model_validate(report),
-                    runtime.workspace_root,
-                ).model_dump(mode="json")
-            }
-        )
-
-    @server.tool(
-        name="report_generate",
-        description="从 Agent 已完成的参考报告合同生成 DOCX、JSON 和文件清单。",
-    )
-    def report_generate(
-        report: dict[str, Any],
-        output_dir: str,
-    ) -> dict[str, Any]:
-        return _result(
-            lambda: {
-                "output": runtime.reporting.generate(
-                    ReferenceStudyReport.model_validate(report),
-                    runtime.workspace_root / output_dir,
-                ).model_dump(mode="json")
-            }
-        )
-
-    @server.tool(
-        name="knowledge_preview_publication",
-        description="校验待发布知识的报告来源、阶段分类和证据引用，不写入知识库。",
-    )
-    def knowledge_preview_publication(
-        manifest_file: dict[str, Any],
-        units: list[dict[str, Any]],
-    ) -> dict[str, Any]:
-        return _result(
-            lambda: {
-                "preview": runtime.knowledge.preview(
-                    FileRef.model_validate(manifest_file),
-                    tuple(KnowledgeUnitDraft.model_validate(item) for item in units),
+                "result": runtime.knowledge.list_stage_types(
+                    TypeAdapter(ApplicableStage).validate_python(stage)
                 ).model_dump(mode="json")
             }
         )
 
     @server.tool(
         name="knowledge_publish",
-        description="在用户明确确认后发布已预览的可迁移知识。",
+        description="把用户最终选中的知识作为一个原子批次创建或显式合并。",
     )
     def knowledge_publish(
-        manifest_file: dict[str, Any],
+        analysis_id: str,
         units: list[dict[str, Any]],
-        user_confirmed: bool,
     ) -> dict[str, Any]:
         return _result(
             lambda: {
                 "publication": runtime.knowledge.publish(
-                    PublicationRequest(
-                        user_confirmed=user_confirmed,
-                        manifest_file=FileRef.model_validate(manifest_file),
+                    KnowledgePublishRequest(
+                        analysis_id=analysis_id,
                         units=tuple(KnowledgeUnitDraft.model_validate(item) for item in units),
                     )
                 ).model_dump(mode="json")
@@ -161,12 +120,13 @@ def register_reference_capabilities(
 
     @server.tool(
         name="knowledge_search",
-        description="按 active、阶段、类型、共享可见性和可迁移性过滤创作知识。",
+        description="先按 active、阶段、动态类型过滤，再执行中文正文语义排序。",
     )
     def knowledge_search(
         stage: str,
+        video_types: list[str],
         knowledge_types: list[str],
-        text: str = "",
+        text: str,
         limit: int = 20,
     ) -> dict[str, Any]:
         return _result(
@@ -175,6 +135,7 @@ def register_reference_capabilities(
                     KnowledgeSearchQuery.model_validate(
                         {
                             "stage": stage,
+                            "video_types": video_types,
                             "knowledge_types": knowledge_types,
                             "text": text,
                             "limit": limit,

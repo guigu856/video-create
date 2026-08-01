@@ -86,6 +86,30 @@ def test_refinement_honors_dense_sampling_interval(tmp_path: Path) -> None:
     assert all(right - left <= 100_000 for left, right in zip(timestamps, timestamps[1:]))
 
 
+def test_dense_contact_sheet_uses_frame_count_based_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def run_ffmpeg(
+        args: list[str],
+        *,
+        capture_output: bool,
+        timeout: int,
+        check: bool,
+    ) -> subprocess.CompletedProcess[bytes]:
+        del capture_output, check
+        if timeout <= 60:
+            raise subprocess.TimeoutExpired(args, timeout)
+        Path(args[-1]).write_bytes(b"contact-sheet")
+        return subprocess.CompletedProcess(args, 0, b"", b"")
+
+    monkeypatch.setattr(subprocess, "run", run_ffmpeg)
+
+    path = VideoAnalysisService()._create_contact_sheet(tmp_path, frame_count=112)
+
+    assert path.is_file()
+
+
 def test_refinement_rejects_interval_over_one_tenth_second() -> None:
     with pytest.raises(ValueError, match="100000"):
         VideoAnalysisService().refine_intervals(
