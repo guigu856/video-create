@@ -12,6 +12,7 @@ output/analysis_520/
 output/_*/
 output/*.mp4
 output/*.docx
+output/plugin/
 
 output/download/*
 !output/download/.gitkeep

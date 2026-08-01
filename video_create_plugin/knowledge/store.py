@@ -30,6 +30,7 @@ from .models import (
 )
 
 _TABLE_NAME = "knowledge_units"
+_INDEX_OPTIMIZE_INTERVAL = 20
 _LOGGER = logging.getLogger(__name__)
 _LOCKS_GUARD = threading.Lock()
 _WRITE_LOCKS: dict[Path, threading.RLock] = {}
@@ -41,6 +42,7 @@ class KnowledgeStore:
         self._write_lock = _shared_lock(self._database_dir)
         self._process_lock = FileLock(str(self._database_dir / ".write.lock"), timeout=60)
         self._table_instance: Any | None = None
+        self._modifications_since_optimization = 0
 
     @contextmanager
     def serialized_write(self) -> Iterator[None]:
@@ -55,12 +57,18 @@ class KnowledgeStore:
             return
         rows = [unit.model_dump(mode="json") for unit in units]
         table = self._table()
-        _drop_indices(table)
         table.merge_insert("knowledge_id").when_matched_update_all().when_not_matched_insert_all().execute(rows)
-        _maintain_indices(table)
+        self._modifications_since_optimization += 1
+        optimized = _maintain_indices(
+            table,
+            optimize=self._modifications_since_optimization >= _INDEX_OPTIMIZE_INTERVAL,
+        )
+        if optimized:
+            self._modifications_since_optimization = 0
 
     def repair_indices(self) -> None:
-        _maintain_indices(self._table())
+        if _maintain_indices(self._table()):
+            self._modifications_since_optimization = 0
 
     def list_all(self) -> tuple[KnowledgeUnit, ...]:
         with self._refreshed_read() as table:
@@ -153,24 +161,16 @@ class KnowledgeStore:
         self,
         embedding: LocalEmbeddingService,
     ) -> tuple[StoredKnowledgeUnit, ...]:
-        units = self.list_stored()
-        if not units:
+        spaces = self._embedding_spaces()
+        if not spaces:
             return ()
         current = embedding.metadata
-        spaces = {
-            (
-                unit.embedding_model,
-                unit.embedding_version,
-                unit.embedding_sha256,
-                unit.embedding_dimension,
-            )
-            for unit in units
-        }
         target = (current.model, current.version, current.sha256, current.dimension)
         if spaces == {target}:
             return ()
         if len(spaces) != 1:
             raise PluginError("embedding_space_invalid", "知识表包含多个向量空间")
+        units = self.list_stored()
         vectors = embedding.embed_documents(tuple(unit.content for unit in units))
         if len(vectors) != len(units):
             raise PluginError("embedding_vector_invalid", "重建向量数量与知识数量不一致")
@@ -190,6 +190,25 @@ class KnowledgeStore:
 
     def ensure_embedding_space(self, embedding: LocalEmbeddingService) -> None:
         self.merge(self.prepare_embedding_rebuild(embedding))
+
+    def _embedding_spaces(self) -> set[tuple[str, str, str, int]]:
+        columns = (
+            "embedding_model",
+            "embedding_version",
+            "embedding_sha256",
+            "embedding_dimension",
+        )
+        with self._refreshed_read() as table:
+            rows = table.search().select(list(columns)).to_list()
+        return {
+            (
+                row["embedding_model"],
+                row["embedding_version"],
+                row["embedding_sha256"],
+                row["embedding_dimension"],
+            )
+            for row in rows
+        }
 
     def _table(self) -> Any:
         if self._table_instance is not None:
@@ -306,17 +325,14 @@ def _ensure_indices(table: Any) -> bool:
     return created
 
 
-def _drop_indices(table: Any) -> None:
-    for index in table.list_indices():
-        table.drop_index(index.name)
-
-
-def _maintain_indices(table: Any) -> None:
+def _maintain_indices(table: Any, *, optimize: bool = False) -> bool:
     try:
-        if _ensure_indices(table):
+        if _ensure_indices(table) or optimize:
             table.optimize()
+            return True
     except Exception as error:
         _LOGGER.warning("知识索引维护失败: %s", type(error).__name__)
+    return False
 
 
 def _stored(row: dict[str, Any]) -> StoredKnowledgeUnit:

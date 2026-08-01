@@ -89,12 +89,12 @@ repository 和 components 互相反向依赖。
 
 **Acceptance criteria:**
 - [x] 内部时间统一使用整数微秒。
-- [ ] `FileRef` 只包含受控路径、SHA-256 和可选 Schema 版本，不包含任务、阶段或 revision。
+- [x] `FileRef` 只包含受控路径、SHA-256 和可选 Schema 版本，不包含任务、阶段或 revision。
 - [x] MCP 成功和错误响应结构固定。
 
 **Verification:**
 - [x] 值对象边界测试通过。
-- [ ] `FileRef` JSON round-trip 和哈希稳定性测试通过。
+- [x] `FileRef` JSON round-trip 和哈希稳定性测试通过。
 
 **Dependencies:** Task 3
 
@@ -147,13 +147,13 @@ repository 和 components 互相反向依赖。
 元数据。
 
 **Acceptance criteria:**
-- [ ] 本地文件和下载结果进入同一 SourceMedia 合同。
-- [ ] 源文件哈希、时长、流和 time base 固化。
-- [ ] 下载逻辑仍归现有组件所有。
+- [x] 本地文件和下载结果进入同一 SourceMedia 合同。
+- [x] 源文件哈希、时长、流和 time base 固化。
+- [x] 下载逻辑仍归现有组件所有。
 
 **Verification:**
-- [ ] 本地媒体和 fake download 测试通过。
-- [ ] 真实 ffprobe 冒烟通过。
+- [x] 本地媒体和 fake download 测试通过。
+- [x] 真实 ffprobe 冒烟通过。
 
 **Dependencies:** Task 4
 
@@ -170,13 +170,13 @@ repository 和 components 互相反向依赖。
 结论。
 
 **Acceptance criteria:**
-- [ ] 帧引用包含 PTS、时间戳、路径和 SHA-256。
-- [ ] 快切区间支持不大于 0.1 秒最大采样间隔。
-- [ ] 自动候选与 Agent 确认镜头明确区分。
+- [x] 帧引用包含 PTS、时间戳、路径和 SHA-256。
+- [x] 快切区间支持不大于 0.1 秒最大采样间隔。
+- [x] 自动候选与 Agent 确认镜头明确区分。
 
 **Verification:**
-- [ ] 合成视频切点和 PTS 测试通过。
-- [ ] 真实短视频生成可查看联系表。
+- [x] 合成视频切点和 PTS 测试通过。
+- [x] 真实短视频生成可查看联系表。
 
 **Dependencies:** Task 6
 
@@ -194,13 +194,13 @@ repository 和 components 互相反向依赖。
 BGM 的证据边界。
 
 **Acceptance criteria:**
-- [ ] 音频结果记录采样率、声道、时间范围和 SHA-256。
-- [ ] tempo 和 beat 只作为带置信度候选。
-- [ ] Agent 语义判断不进入组件。
+- [x] 音频结果记录采样率、声道、时间范围和 SHA-256。
+- [x] tempo 和 beat 只作为带置信度候选。
+- [x] Agent 语义判断不进入组件。
 
 **Verification:**
-- [ ] 合成节拍和静音音频测试通过。
-- [ ] 真实音轨生成波形和候选事件。
+- [x] 合成节拍和静音音频测试通过。
+- [x] 真实音轨生成波形和候选事件。
 
 **Dependencies:** Task 6
 
@@ -217,13 +217,13 @@ BGM 的证据边界。
 **Description:** 将视频和音频分析编排为持久 Job，支持进度、错误、重启恢复和指定区间细化。
 
 **Acceptance criteria:**
-- [ ] queued、running、succeeded、failed 状态持久化。
-- [ ] 重启后 queued 继续，旧 running 标记 interrupted。
-- [ ] 已完成内容哈希步骤可复用。
+- [x] queued、running、succeeded、failed 状态持久化。
+- [x] 重启后 queued 继续，旧 running 标记 interrupted。
+- [x] 已完成内容哈希步骤可复用。
 
 **Verification:**
-- [ ] 重启、失败和细化测试通过。
-- [ ] Job 输出只引用组件证据文件和分析目录。
+- [x] 重启、失败和细化测试通过。
+- [x] Job 输出只引用组件证据文件和分析目录。
 
 **Dependencies:** Tasks 7, 8
 

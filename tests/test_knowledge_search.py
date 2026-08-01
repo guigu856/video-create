@@ -199,3 +199,27 @@ def test_search_does_not_rebuild_healthy_indices(
         )
     )
     assert len(found.items) == 1
+
+
+def test_healthy_search_skips_full_row_embedding_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, store, _ = make_service(tmp_path)
+    publish(service, draft())
+
+    def unexpected_full_scan(*_: object, **__: object) -> None:
+        raise AssertionError("健康向量空间不应加载全部知识正文和向量")
+
+    monkeypatch.setattr(store, "list_stored", unexpected_full_scan)
+
+    found = service.search(
+        KnowledgeSearchQuery(
+            stage="stage3",
+            video_types=("动漫 MAD",),
+            knowledge_types=("editing_sentence",),
+            text="快切重拍",
+        )
+    )
+
+    assert len(found.items) == 1

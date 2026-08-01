@@ -12,6 +12,7 @@ import pytest
 from filelock import FileLock
 from reference_analysis_fixtures import materialize_succeeded_analysis
 
+import video_create_plugin.knowledge.store as knowledge_store_module
 from video_create_plugin.application.knowledge import KnowledgeService
 from video_create_plugin.errors import PluginError
 from video_create_plugin.knowledge.embedding import EmbeddingMetadata
@@ -124,7 +125,7 @@ def test_new_publication_persists_one_row_and_one_vector(tmp_path: Path) -> None
     assert restarted.get(units[0].knowledge_id) == units[0]
 
 
-def test_publication_updates_all_scalar_indices(tmp_path: Path) -> None:
+def test_publication_preserves_all_scalar_indices(tmp_path: Path) -> None:
     service, _, _ = make_service(tmp_path)
 
     publish(service, draft())
@@ -138,25 +139,81 @@ def test_publication_updates_all_scalar_indices(tmp_path: Path) -> None:
         "status_idx",
         "video_types_idx",
     }
-    assert all(index.num_indexed_rows == 1 for index in indices)
-    assert all(index.num_unindexed_rows == 0 for index in indices)
+
+
+def test_repeated_publication_keeps_existing_indices_without_full_maintenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, store, _ = make_service(tmp_path)
+    publish(service, draft())
+    table = store._table()
+
+    def unexpected_maintenance(*_: object, **__: object) -> None:
+        raise AssertionError("增量发布不应删除、重建或全量优化健康索引")
+
+    monkeypatch.setattr(table, "drop_index", unexpected_maintenance)
+    monkeypatch.setattr(table, "create_index", unexpected_maintenance)
+    monkeypatch.setattr(table, "optimize", unexpected_maintenance)
+
+    result = publish(
+        service,
+        draft(
+            local_id="K002",
+            evidence_id="frame_000002",
+            video_types=("电影混剪",),
+            knowledge_type="motion_pattern",
+        ),
+    )
+
+    found = service.search(
+        KnowledgeSearchQuery(
+            stage="stage3",
+            video_types=("电影混剪",),
+            knowledge_types=("motion_pattern",),
+            text="缓慢横移",
+        )
+    )
+    assert [item.knowledge_id for item in found.items] == [result.items[0].knowledge_id]
+
+
+def test_publication_optimizes_indices_periodically(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(knowledge_store_module, "_INDEX_OPTIMIZE_INTERVAL", 2)
+    service, store, _ = make_service(tmp_path)
+    table = store._table()
+    optimize_calls = 0
+
+    def record_optimization(*_: object, **__: object) -> None:
+        nonlocal optimize_calls
+        optimize_calls += 1
+
+    monkeypatch.setattr(table, "optimize", record_optimization)
+
+    publish(service, draft())
+    publish(service, draft(local_id="K002", evidence_id="frame_000002"))
+
+    assert optimize_calls == 1
 
 
 def test_index_maintenance_failure_keeps_committed_publication_usable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(knowledge_store_module, "_INDEX_OPTIMIZE_INTERVAL", 1)
     service, store, _ = make_service(tmp_path)
     table = store._table()
 
-    def fail_index_creation(*_: object, **__: object) -> None:
+    def fail_index_optimization(*_: object, **__: object) -> None:
         raise RuntimeError("index maintenance failed")
 
-    create_index = table.create_index
-    monkeypatch.setattr(table, "create_index", fail_index_creation)
+    optimize = table.optimize
+    monkeypatch.setattr(table, "optimize", fail_index_optimization)
 
     result = publish(service, draft())
-    monkeypatch.setattr(table, "create_index", create_index)
+    monkeypatch.setattr(table, "optimize", optimize)
 
     assert result.items[0].action == "created"
     assert [unit.knowledge_id for unit in store.list_all()] == [
