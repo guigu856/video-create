@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "video-create-components"
-version = "0.1.0+codex.20260801161517"
+version = "0.1.0+codex.20260813111357"
 description = "供 Agent 调用的视频创作组件"
 requires-python = ">=3.11"
 dependencies = [

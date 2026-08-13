@@ -2019,7 +2019,7 @@ wheels = [
 
 [[package]]
 name = "video-create-components"
-version = "0.1.0+codex.20260801161517"
+version = "0.1.0+codex.20260813111357"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },

@@ -174,17 +174,22 @@ def test_stdio_handshake_exposes_only_the_final_reference_tools(tmp_path: Path) 
 
 def test_reference_skill_defines_the_six_chapter_context_document() -> None:
     content = (ROOT / "skills/reference-study/SKILL.md").read_text(encoding="utf-8")
+    main_rule = (ROOT / "rules/main-agent.md").read_text(encoding="utf-8")
 
     for title in (
-        "参考视频总体概括",
-        "BGM 结构分析",
-        "参考片逐镜效果分析",
-        "音画关系与剪辑语法",
-        "整体总结与重新创作原则",
-        "待沉淀知识",
+        "第一章：先用一分钟看懂这条视频",
+        "第二章：音乐和声音是怎么带动视频的",
+        "第三章：画面是怎么一段段剪出来的",
+        "第四章：声音和画面是怎么配合的",
+        "第五章：如果重新做一条，应该学什么",
+        "第六章：待沉淀知识",
     ):
         assert title in content
+    assert "| 时间 | 主要画面 | 画面里的变化 | 对应声音 | 产生的作用 |" in content
+    assert "可以重复使用的剪法" in content
+    assert "内部字段不进入用户可见的前五章正文" in content
     assert "K001" in content
     assert "knowledge_publish" in content
     assert "宿主文档能力" in content
     assert "DOCX" in content
+    assert "前五章使用普通用户能理解的表达" in main_rule
