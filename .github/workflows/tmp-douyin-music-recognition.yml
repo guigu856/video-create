@@ -1,0 +1,83 @@
+name: tmp-douyin-music-recognition
+
+on:
+  push:
+    branches:
+      - tmp/douyin-music-recognition-20260818
+
+permissions:
+  contents: read
+
+jobs:
+  recognize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          pip install shazamio httpx
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+      - name: Recognize backing tracks
+        run: |
+          python - <<'PY'
+          import asyncio, json, subprocess
+          from pathlib import Path
+          import httpx
+          from shazamio import Shazam
+
+          sources={
+            'unfinished_effort':'https://sf6-cdn-tos.douyinstatic.com/obj/ies-music/7669065965061229354.mp3',
+            'unfinished_circle':'https://sf11-cdn-tos.douyinstatic.com/obj/ies-music/7666840679825574706.mp3',
+            'ggbond_next':'https://sf6-cdn-tos.douyinstatic.com/obj/ies-music/7651224506035440422.mp3',
+            'ggbond_effort':'https://sf11-cdn-tos.douyinstatic.com/obj/ies-music/7650121381472652095.mp3',
+            'banana_next':'https://sf11-cdn-tos.douyinstatic.com/obj/ies-music/7640471749474732809.mp3',
+            'banana_meet':'https://sf11-cdn-tos.douyinstatic.com/obj/ies-music/7626746360922475274.mp3',
+          }
+          root=Path('music_recognition'); root.mkdir(exist_ok=True)
+          result={}
+          headers={'User-Agent':'Mozilla/5.0','Referer':'https://www.douyin.com/'}
+          async def main():
+            shazam=Shazam(segment_duration_seconds=12)
+            async with httpx.AsyncClient(headers=headers,follow_redirects=True,timeout=60) as c:
+              for name,url in sources.items():
+                item={'source':url,'attempts':[]}
+                try:
+                  r=await c.get(url); r.raise_for_status()
+                  full=root/f'{name}.mp3'; full.write_bytes(r.content)
+                  for start in [8,25,45,70]:
+                    seg=root/f'{name}_{start}.wav'
+                    p=subprocess.run(['ffmpeg','-y','-loglevel','error','-ss',str(start),'-i',str(full),'-t','18','-ac','1','-ar','16000',str(seg)])
+                    if p.returncode!=0 or not seg.exists() or seg.stat().st_size<10000: continue
+                    try:
+                      out=await shazam.recognize(str(seg))
+                      track=out.get('track') or {}
+                      item['attempts'].append({
+                        'start':start,
+                        'matches':len(out.get('matches') or []),
+                        'title':track.get('title'),
+                        'subtitle':track.get('subtitle'),
+                        'key':track.get('key'),
+                        'url':track.get('url'),
+                      })
+                    except Exception as e:
+                      item['attempts'].append({'start':start,'error':f'{type(e).__name__}: {e}'})
+                    seg.unlink(missing_ok=True)
+                  full.unlink(missing_ok=True)
+                except Exception as e:
+                  item['error']=f'{type(e).__name__}: {e}'
+                result[name]=item
+            (root/'result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+            print(json.dumps(result,ensure_ascii=False,indent=2))
+          asyncio.run(main())
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: douyin-music-recognition
+          path: music_recognition/
+          if-no-files-found: warn
