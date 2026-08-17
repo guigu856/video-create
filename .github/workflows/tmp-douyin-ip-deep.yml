@@ -1,0 +1,89 @@
+name: tmp-douyin-ip-deep
+
+on:
+  push:
+    branches:
+      - tmp/douyin-account-research-20260817
+
+permissions:
+  contents: read
+
+jobs:
+  deep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          pip install httpx pillow faster-whisper
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+      - name: Download samples, frame and transcribe
+        run: |
+          python - <<'PY'
+          import json, subprocess, re
+          from pathlib import Path
+          import httpx
+          from faster_whisper import WhisperModel
+          from PIL import Image, ImageOps, ImageDraw
+
+          samples=[
+            ('unfinished_circle','7666840511826775339','https://www.douyin.com/aweme/v1/play/?video_id=v0200fg10000d9j1auvog65snlqhh4s0&line=0&file_id=6d5b25613efb4c60b48d3dcda4e601a0&sign=41481dfd252b517d8792adde8cbeb667&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3Jx_AfESRKvePEcuaarI81YWuwTcZpGpddgcIfpqeE9VaaOzLa7CA0Ou-V1V2BgVcUdNES7E3DDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'),
+            ('unfinished_effort','7669065861872782628','https://www.douyin.com/aweme/v1/play/?video_id=v0d00fg10000d9mvs3vog65kefb0o4k0&line=0&file_id=df7fe3f010cf479f9fe296809b545841&sign=c2e2046def93387794d917f13b9e02ba&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3JkfAfESRKvePEcuaaq8gnJ2uwTcZpApxXkpoYpr-E9VaaOzLa7CA0Ou-V1V2BgVcUdNES7E3DDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'),
+            ('ggbond_next','7651224462007880998','https://www.douyin.com/aweme/v1/play/?video_id=v0d00fg10000d8n9mtnog65p09pv3vr0&line=0&file_id=a99eb027e35649d79e9c070539b6fb00&sign=8a1cc8517f6dfdca5a98e8749e6d6bdb&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3JkfAfESRKvePEcuabqIc5YHOwTcZpGckIgNxE5KaE9VaaOzLa7CA0Ou-V1V2BgVcUdNES7EnFDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'),
+            ('ggbond_effort','7650121344763399459','https://www.douyin.com/aweme/v1/play/?video_id=v0200fg10000d8laujfog65usj1g3bug&line=0&file_id=0a1237d1e4ed4f1dbb40f8c423f49444&sign=697eabcb8b773a497bbdcf01c36d0752&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3Jx_AfESRKvePEcuabqt8hfnuwTcZpHIpbwc1E8KHT9VaaOzLa7CA0Ou-V1V2BgVcUdNES7EnFDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'),
+            ('banana_next','7640471652668656937','https://www.douyin.com/aweme/v1/play/?video_id=v0300fg10000d846fdnog65m7qk4mlmg&line=0&file_id=fd78c6635ae34977a9dd3c1a6f562f34&sign=faecf0307c3cda05ac1ed90a40988f54&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3JxvAfESRKvePEcuab8ogycHOwTcZpBM5Am54a_rnT9VaaOzLa7CA0Ou-V1V2BgVcUdNES7EbGDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'),
+            ('banana_meet','7626746289266478390','https://www.douyin.com/aweme/v1/play/?video_id=v0200fg10000d7bq6tfog65in1paphtg&line=0&file_id=f3637fe23dda428faacc51e045e2c687&sign=79c2033206be690817cd4348e5be9782&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3Jx_AfESRKvePEcuaUpM9iYHuwTcZpAJcAgMsH-qDT9VaaOzLa7CA0Ou-V1V2BgVcUdNES7EbGDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'),
+          ]
+          root=Path('ip_deep'); root.mkdir(exist_ok=True)
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+          headers={'User-Agent':UA,'Referer':'https://www.douyin.com/'}
+          out={'items':{},'errors':[]}
+          with httpx.Client(headers=headers,follow_redirects=True,timeout=90) as c:
+            for label,aid,url in samples:
+              try:
+                r=c.get(url); r.raise_for_status()
+                mp4=root/f'{label}_{aid}.mp4'; mp4.write_bytes(r.content)
+                out['items'][label]={'aweme_id':aid,'bytes':len(r.content),'file':str(mp4)}
+                print(label,'download',len(r.content),r.headers.get('content-type'))
+              except Exception as e: out['errors'].append(f'{label} download {type(e).__name__}: {e}')
+
+          for label,item in out['items'].items():
+            mp4=Path(item['file']); fd=root/f'frames_{label}'; fd.mkdir(exist_ok=True)
+            # denser first 30s + every 20s overall
+            subprocess.run(['ffmpeg','-y','-loglevel','error','-i',str(mp4),'-vf','fps=1/10,scale=360:-2',str(fd/'%03d.jpg')],check=False)
+            frames=sorted(fd.glob('*.jpg'))[:18]
+            item['frame_count']=len(frames)
+            if frames:
+              thumbs=[]
+              for i,f in enumerate(frames):
+                im=Image.open(f).convert('RGB'); im=ImageOps.pad(im,(360,640),color='black')
+                dr=ImageDraw.Draw(im); dr.rectangle((0,0,88,28),fill='black'); dr.text((5,5),f'{i*10}s',fill='white'); thumbs.append(im)
+              cols=3; rows=(len(thumbs)+2)//3
+              sh=Image.new('RGB',(cols*360,rows*640),'black')
+              for i,im in enumerate(thumbs): sh.paste(im,((i%cols)*360,(i//cols)*640))
+              sp=root/f'contact_{label}.jpg'; sh.save(sp,quality=82); item['contact_sheet']=str(sp)
+          model=WhisperModel('base',device='cpu',compute_type='int8')
+          for label,item in out['items'].items():
+            try:
+              segs,info=model.transcribe(item['file'],language='zh',vad_filter=True,beam_size=3)
+              arr=[{'start':round(s.start,2),'end':round(s.end,2),'text':s.text.strip()} for s in segs]
+              item['transcript']=arr
+              (root/f'transcript_{label}.json').write_text(json.dumps(arr,ensure_ascii=False,indent=2),encoding='utf-8')
+              print('\n###',label)
+              print(' '.join(x['text'] for x in arr)[:5000])
+            except Exception as e: out['errors'].append(f'{label} asr {type(e).__name__}: {e}')
+          for p in root.glob('*.mp4'): p.unlink(missing_ok=True)
+          (root/'summary.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          PY
+      - name: Upload analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: douyin-ip-deep
+          path: ip_deep/
+          if-no-files-found: warn
