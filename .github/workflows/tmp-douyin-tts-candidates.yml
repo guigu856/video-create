@@ -1,0 +1,60 @@
+name: tmp-douyin-tts-candidates
+
+on:
+  push:
+    branches:
+      - tmp/douyin-tts-candidates-20260818
+
+permissions:
+  contents: read
+
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          pip install edge-tts pydub
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+      - name: Generate candidates
+        run: |
+          python - <<'PY'
+          import asyncio, json
+          from pathlib import Path
+          import edge_tts
+          from pydub import AudioSegment
+          root=Path('tts_candidates'); root.mkdir(exist_ok=True)
+          q='只要把每天的时间安排得足够满，不浪费一分钟，效率自然就会越来越高，对吗？'
+          a='不对。你甚至可能越努力安排时间，事情拖得越久。因为真正的问题，不是你安排得不够好，而是你把自己的时间利用率拉得太满了。'
+          cfg={
+            'A_年轻弱提问_硬朗解释':(('zh-CN-YunxiNeural','-6%','-6Hz','-6%'),('zh-CN-YunjianNeural','+5%','+0Hz','+2%')),
+            'B_少年柔和提问_专业解释':(('zh-CN-YunxiaNeural','-4%','-5Hz','-5%'),('zh-CN-YunyangNeural','+3%','-2Hz','+2%')),
+            'C_更弱提问_更强解释':(('zh-CN-YunxiNeural','-8%','-8Hz','-7%'),('zh-CN-YunfengNeural','+6%','+0Hz','+3%')),
+          }
+          async def syn(text,params,out):
+            voice,rate,pitch,volume=params
+            await edge_tts.Communicate(text,voice=voice,rate=rate,pitch=pitch,volume=volume).save(str(out))
+          async def main():
+            meta={}
+            for name,(qp,ap) in cfg.items():
+              qf=root/f'{name}_q.mp3'; af=root/f'{name}_a.mp3'
+              await syn(q,qp,qf); await syn(a,ap,af)
+              qa=AudioSegment.from_file(qf)-1.5
+              aa=AudioSegment.from_file(af)+1.0
+              pair=qa+AudioSegment.silent(duration=170)+aa
+              out=root/f'{name}.mp3'; pair.export(out,format='mp3',bitrate='128k')
+              qf.unlink(); af.unlink()
+              meta[name]={'question_voice':qp[0],'answer_voice':ap[0],'file':str(out)}
+            (root/'meta.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding='utf-8')
+          asyncio.run(main())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: douyin-tts-candidates
+          path: tts_candidates/
