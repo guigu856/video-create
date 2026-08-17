@@ -5,61 +5,45 @@ on:
 permissions:
   contents: read
 jobs:
-  synth:
+  debug:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Generate samples in parallel
+      - name: Inspect current response fields
         shell: bash
         run: |
           set -euo pipefail
           git clone --depth 1 https://github.com/K07VN/capcut-tts-api.git /tmp/capcut
           pip install requests
-          mkdir -p output/capcut-female
+          mkdir -p output/capcut-debug
           cd /tmp/capcut
           python - <<'PY'
-          import json,os,re,requests
+          import json,time,os
           from pathlib import Path
-          from concurrent.futures import ThreadPoolExecutor,as_completed
           from capcut_tts_api import CapCutClient
-          out=Path(os.environ['GITHUB_WORKSPACE'])/'output'/'capcut-female'
-          voices=json.loads(Path('Voice.json').read_text(encoding='utf-8'))
-          keys=['female','xiaonan','tianmei','qingxin','maomao','yuewen','cancan','sisi','xiaoyi','xiaohe','nv','girl','jie','mei']
-          c=[v for v in voices if str(v.get('lang','')).lower()=='zh-cn' and any(k in str(v.get('voice_type','')).lower() for k in keys)]
-          print('CANDIDATES',json.dumps(c,ensure_ascii=False,indent=2))
+          out=Path(os.environ['GITHUB_WORKSPACE'])/'output'/'capcut-debug'
+          c=CapCutClient()
           text='把每天的时间安排得越满，效率就越高，对吗？不对。真正高效的系统，必须给意外留出余量。'
-          def walk(o):
-            if isinstance(o,dict):
-              for x in o.values(): yield from walk(x)
-            elif isinstance(o,list):
-              for x in o: yield from walk(x)
-            elif isinstance(o,str): yield o
-          def job(v):
-            vt=v['voice_type']; name=v.get('display_name') or vt
-            try:
-              res=CapCutClient().generate_speech(texts=text,voice=vt,resource_id=v.get('resource_id'),rate='1.0',wait=True,poll_interval=.5,timeout=18)
-              for u in [x for x in walk(res) if x.startswith(('http://','https://'))]:
-                r=requests.get(u,timeout=12,headers={'User-Agent':'Mozilla/5.0'})
-                if r.ok and len(r.content)>2000:
-                  safe=re.sub(r'[^0-9A-Za-z\u4e00-\u9fff._-]+','_',name)[:35]
-                  fn=out/f'{safe}__{vt[:45]}.mp3'; fn.write_bytes(r.content)
-                  return {'ok':1,'name':name,'voice_type':vt,'resource_id':v.get('resource_id'),'file':fn.name}
-              return {'ok':0,'name':name,'voice_type':vt,'error':'no_audio'}
-            except Exception as e:
-              return {'ok':0,'name':name,'voice_type':vt,'error':repr(e)}
-          results=[]
-          with ThreadPoolExecutor(max_workers=8) as ex:
-            for f in as_completed([ex.submit(job,v) for v in c[:24]]):
-              x=f.result(); results.append(x); print('RESULT',x)
-          (out/'index.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
-          if not any(x.get('ok') for x in results): raise SystemExit(2)
+          res=c.create_tts_task(texts=text,voice='zh_female_inspirational',resource_id='7473013595417088528',rate='1.0')
+          print('CREATE=',json.dumps(res,ensure_ascii=False,indent=2))
+          (out/'create.json').write_text(json.dumps(res,ensure_ascii=False,indent=2),encoding='utf-8')
+          tasks=(res.get('data') or {}).get('tasks') or []
+          if tasks:
+            tid=tasks[0].get('id'); token=tasks[0].get('token'); print('TASK',tid,token)
+            history=[]
+            for i in range(12):
+              time.sleep(2)
+              q=c.query_tts_task(tid,token)
+              history.append(q)
+              print('QUERY',i,json.dumps(q,ensure_ascii=False))
+            (out/'queries.json').write_text(json.dumps(history,ensure_ascii=False,indent=2),encoding='utf-8')
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: capcut-chinese-female-tts-samples
-          path: output/capcut-female/
+          name: capcut-tts-debug
+          path: output/capcut-debug/
           retention-days: 7
