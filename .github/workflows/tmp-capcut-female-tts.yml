@@ -7,53 +7,52 @@ permissions:
 jobs:
   qwen:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Generate Qwen3 female voice candidates
+      - name: Generate stronger Vivian variants
         shell: bash
         continue-on-error: true
         run: |
           set -u
           pip install -U gradio_client
-          mkdir -p output/qwen-female
+          mkdir -p output/vivian-strong
           python - <<'PY'
           import shutil, json
           from pathlib import Path
           from gradio_client import Client
-          out=Path('output/qwen-female')
+          out=Path('output/vivian-strong')
           c=Client('Qwen/Qwen3-TTS')
           cases=[
-            ('01_Serena_轻提问','把每天的时间安排得越满，效率就越高，对吗？','Serena','年轻女声，语气轻一点、弱一点、自然一点，像在试探性地提出一个自己觉得可能正确的观点；不要播音腔，不要卖萌，句尾轻微上扬。'),
-            ('02_Vivian_轻提问','把每天的时间安排得越满，效率就越高，对吗？','Vivian','年轻知性女声，语气偏轻、偏弱，像平静地提出一个日常直觉；自然口语，句尾轻微上扬，不要新闻播报感。'),
-            ('03_Serena_强解释','不对。真正高效的系统，必须给意外留出余量。','Serena','女声要冷静、确定、有力量。开头“不对”两个字短促有力，后面的解释稳、清晰、有压迫感，但不要喊，不要新闻播音腔。'),
+            ('02A_Vivian_更强势','不对。真正高效的系统，必须给意外留出余量。','年轻知性女声。整体语气比普通讲解更强势、更确定、更有压迫感；音高稍低，咬字更实，节奏稳。开头“不对”两个字要短、硬、直接下结论，随后略停顿再解释。不要喊叫，不要新闻主播腔，不要温柔安慰感。'),
+            ('02B_Vivian_冷硬版','不对。真正高效的系统，必须给意外留出余量。','年轻女声，冷静、克制、强势，像非常确定地纠正一个错误观点。声线保持自然但更低沉一点，语速略慢，重音落在“不对”“高效”“必须”“余量”。“不对”短促有力，解释部分稳而有气场；不要吼，不要夸张表演。'),
           ]
           results=[]
-          for name,text,speaker,instruct in cases:
+          for name,text,instruct in cases:
             try:
-              r=c.predict(text,'Chinese',speaker,instruct,'0.6B',api_name='/generate_custom_voice')
+              r=c.predict(text,'Chinese','Vivian',instruct,'0.6B',api_name='/generate_custom_voice')
               audio=r[0] if isinstance(r,(list,tuple)) else r
               if audio and Path(str(audio)).exists():
                 dst=out/f'{name}{Path(str(audio)).suffix or ".wav"}'
                 shutil.copy2(str(audio),dst)
-                results.append({'name':name,'speaker':speaker,'file':dst.name,'status':r[1] if isinstance(r,(list,tuple)) and len(r)>1 else ''})
+                results.append({'name':name,'file':dst.name,'status':r[1] if isinstance(r,(list,tuple)) and len(r)>1 else ''})
                 print('SAVED',dst)
               else:
-                results.append({'name':name,'speaker':speaker,'error':repr(r)})
+                results.append({'name':name,'error':repr(r)})
             except Exception as e:
-              results.append({'name':name,'speaker':speaker,'error':repr(e)})
+              results.append({'name':name,'error':repr(e)})
               print('FAILED',name,repr(e))
           (out/'index.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
           print(json.dumps(results,ensure_ascii=False,indent=2))
           PY
-      - name: Upload whatever succeeded
+      - name: Upload samples
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qwen3-female-voice-candidates
-          path: output/qwen-female/
+          name: vivian-stronger-variants
+          path: output/vivian-strong/
           if-no-files-found: warn
           retention-days: 7
