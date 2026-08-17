@@ -1,0 +1,70 @@
+name: tmp-ep01-full-voice
+on:
+  push:
+    branches: [tmp/capcut-female-tts-20260818]
+permissions:
+  contents: read
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate narration
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -u
+          pip install -U gradio_client
+          mkdir -p output/ep01-voice
+          python - <<'PY'
+          import shutil, json
+          from pathlib import Path
+          from gradio_client import Client
+
+          out=Path('output/ep01-voice')
+          client=Client('Qwen/Qwen3-TTS')
+          cases=[
+            (
+              '01_question_serena',
+              '只要把每天的时间安排得足够满，不浪费一分钟，效率自然就会越来越高，对吗？',
+              'Serena',
+              '年轻女声，语气轻一点、弱一点、自然一点，像在试探性地提出一个自己觉得可能正确的观点。不要播音腔，不要卖萌，句尾轻微上扬。'
+            ),
+            (
+              '02_explain_vivian',
+              '不对。你有没有过这种一天？九点写方案，十点开会，十一点回消息，下午一点继续下一个任务。每件事都刚好排满，看起来非常完美。可只要第一件事多花二十分钟，后面就开始整体往后挪。会议再多开十分钟，原本十一点的事已经晚了半小时。到了晚上，你一刻没停，却还是觉得什么都没做完。这里有个很反直觉的规律。排队论研究的，就是任务到来和系统处理之间的关系。在最简单的模型里，当任务到达速度越来越接近系统的处理极限，等待时间不会平稳增加，而会迅速拉长。换成人话，你越接近满负荷，系统越脆。一天能处理八件事，只安排五件，意外来了还能吸收。排满八件，余量就是零。一条临时消息，一次会议延长，一次状态不好，都会把后面的任务推迟，而且延期还会继续传下去。所以时间管理真正该问的，不是还能不能再塞一件，而是如果今天出一点意外，我还有没有地方接住它。那些日程表里看起来空白的时间，不一定是浪费，它可能是整个系统不崩掉的缓冲区。所以，把一天安排得越满，效率就越高，对吗？不对。有时候真正拖垮你的，不是浪费时间，而是你连一点可以浪费的时间，都没给自己留下。',
+              'Vivian',
+              '年轻知性女声，比普通叙述更强势、更有主导感。整体音区略低，声音稳定、有重量，咬字清楚利落。开头“不对”必须短促、确定，像直接否定错误答案；后文保持克制的压迫感和解释力，不喊叫，不夸张，不要新闻主播腔。关键结论稍微加重，句间停顿干净。'
+            )
+          ]
+          results=[]
+          for name,text,speaker,instruct in cases:
+            try:
+              r=client.predict(text,'Chinese',speaker,instruct,'0.6B',api_name='/generate_custom_voice')
+              audio=r[0] if isinstance(r,(list,tuple)) else r
+              if audio and Path(str(audio)).exists():
+                ext=Path(str(audio)).suffix or '.wav'
+                dst=out/f'{name}{ext}'
+                shutil.copy2(str(audio),dst)
+                results.append({'name':name,'speaker':speaker,'file':dst.name,'status':r[1] if isinstance(r,(list,tuple)) and len(r)>1 else ''})
+                print('SAVED',dst)
+              else:
+                results.append({'name':name,'speaker':speaker,'error':repr(r)})
+            except Exception as e:
+              results.append({'name':name,'speaker':speaker,'error':repr(e)})
+              print('FAILED',name,repr(e))
+          (out/'index.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(results,ensure_ascii=False,indent=2))
+          PY
+      - name: Upload narration
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ep01-full-narration
+          path: output/ep01-voice/
+          if-no-files-found: warn
+          retention-days: 7
