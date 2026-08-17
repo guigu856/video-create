@@ -7,13 +7,13 @@ permissions:
 jobs:
   synth:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Generate samples
+      - name: Generate samples in parallel
         shell: bash
         run: |
           set -euo pipefail
@@ -22,50 +22,41 @@ jobs:
           mkdir -p output/capcut-female
           cd /tmp/capcut
           python - <<'PY'
-          import json, os, re, time
+          import json,os,re,requests
           from pathlib import Path
-          import requests
+          from concurrent.futures import ThreadPoolExecutor,as_completed
           from capcut_tts_api import CapCutClient
           out=Path(os.environ['GITHUB_WORKSPACE'])/'output'/'capcut-female'
           voices=json.loads(Path('Voice.json').read_text(encoding='utf-8'))
-          zh=[v for v in voices if str(v.get('lang','')).lower()=='zh-cn']
-          keys=['female','xiaonan','tianmei','qingxin','maomao','yuewen','cancan','sisi','nv','girl','jie','mei','xiaoyi','xiaohe']
-          female=[v for v in zh if any(k in str(v.get('voice_type','')).lower() for k in keys)]
-          print('ZH',len(zh),'FEMALE',len(female))
-          for v in female: print(v)
+          keys=['female','xiaonan','tianmei','qingxin','maomao','yuewen','cancan','sisi','xiaoyi','xiaohe','nv','girl','jie','mei']
+          c=[v for v in voices if str(v.get('lang','')).lower()=='zh-cn' and any(k in str(v.get('voice_type','')).lower() for k in keys)]
+          print('CANDIDATES',json.dumps(c,ensure_ascii=False,indent=2))
           text='把每天的时间安排得越满，效率就越高，对吗？不对。真正高效的系统，必须给意外留出余量。'
-          client=CapCutClient(); successes=[]
           def walk(o):
             if isinstance(o,dict):
               for x in o.values(): yield from walk(x)
             elif isinstance(o,list):
               for x in o: yield from walk(x)
             elif isinstance(o,str): yield o
-          for i,v in enumerate(female[:30],1):
-            if len(successes)>=10: break
+          def job(v):
             vt=v['voice_type']; name=v.get('display_name') or vt
             try:
-              print('TRY',i,name,vt)
-              res=client.generate_speech(texts=text,voice=vt,resource_id=v.get('resource_id'),rate='1.0',wait=True,timeout=35)
-              urls=[s for s in walk(res) if s.startswith(('http://','https://'))]
-              print('URLS',urls)
-              audio=None
-              for u in urls:
-                try:
-                  r=requests.get(u,timeout=30,headers={'User-Agent':'Mozilla/5.0'})
-                  if r.ok and len(r.content)>2000:
-                    audio=r.content; break
-                except Exception as e: print('DLERR',e)
-              if audio:
-                safe=re.sub(r'[^0-9A-Za-z\u4e00-\u9fff._-]+','_',name)[:40]
-                fn=out/f'{len(successes)+1:02d}_{safe}.mp3'; fn.write_bytes(audio)
-                successes.append({'name':name,'voice_type':vt,'resource_id':v.get('resource_id'),'file':fn.name})
-                print('SAVED',fn)
-            except Exception as e: print('FAIL',vt,repr(e))
-            time.sleep(.3)
-          (out/'index.json').write_text(json.dumps(successes,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('SUCCESS',len(successes))
-          if not successes: raise SystemExit(2)
+              res=CapCutClient().generate_speech(texts=text,voice=vt,resource_id=v.get('resource_id'),rate='1.0',wait=True,poll_interval=.5,timeout=18)
+              for u in [x for x in walk(res) if x.startswith(('http://','https://'))]:
+                r=requests.get(u,timeout=12,headers={'User-Agent':'Mozilla/5.0'})
+                if r.ok and len(r.content)>2000:
+                  safe=re.sub(r'[^0-9A-Za-z\u4e00-\u9fff._-]+','_',name)[:35]
+                  fn=out/f'{safe}__{vt[:45]}.mp3'; fn.write_bytes(r.content)
+                  return {'ok':1,'name':name,'voice_type':vt,'resource_id':v.get('resource_id'),'file':fn.name}
+              return {'ok':0,'name':name,'voice_type':vt,'error':'no_audio'}
+            except Exception as e:
+              return {'ok':0,'name':name,'voice_type':vt,'error':repr(e)}
+          results=[]
+          with ThreadPoolExecutor(max_workers=8) as ex:
+            for f in as_completed([ex.submit(job,v) for v in c[:24]]):
+              x=f.result(); results.append(x); print('RESULT',x)
+          (out/'index.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
+          if not any(x.get('ok') for x in results): raise SystemExit(2)
           PY
       - uses: actions/upload-artifact@v4
         with:
