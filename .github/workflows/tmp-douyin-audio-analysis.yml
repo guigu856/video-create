@@ -1,0 +1,171 @@
+name: tmp-douyin-audio-analysis
+
+on:
+  push:
+    branches:
+      - tmp/douyin-audio-analysis-20260818
+
+permissions:
+  contents: read
+
+jobs:
+  audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'git+https://github.com/Johnserf-Seed/f2.git@main' playwright httpx edge-tts pydub librosa soundfile numpy
+          python -m playwright install --with-deps chromium
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+      - name: Analyze reference voices, inspect music metadata, generate candidate TTS
+        run: |
+          python - <<'PY'
+          import asyncio, json, math, subprocess, re
+          from pathlib import Path
+          import numpy as np
+          import httpx
+          import librosa
+          from pydub import AudioSegment
+          import edge_tts
+          from playwright.async_api import async_playwright
+          from f2.apps.douyin.handler import DouyinHandler
+
+          root=Path('audio_analysis'); root.mkdir(exist_ok=True)
+          refdir=root/'reference_clips'; refdir.mkdir(exist_ok=True)
+          canddir=root/'candidate_voices'; canddir.mkdir(exist_ok=True)
+
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0'
+          samples=[
+            {'label':'unfinished_effort','aid':'7669065861872782628','share':'https://v.douyin.com/g0-ZCEzzfQ4/','url':'https://www.douyin.com/aweme/v1/play/?video_id=v0d00fg10000d9mvs3vog65kefb0o4k0&line=0&file_id=df7fe3f010cf479f9fe296809b545841&sign=c2e2046def93387794d917f13b9e02ba&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3JkfAfESRKvePEcuaaq8gnJ2uwTcZpApxXkpoYpr-E9VaaOzLa7CA0Ou-V1V2BgVcUdNES7E3DDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'},
+            {'label':'ggbond_next','aid':'7651224462007880998','share':'https://v.douyin.com/-qdBFBmoUns/','url':'https://www.douyin.com/aweme/v1/play/?video_id=v0d00fg10000d8n9mtnog65p09pv3vr0&line=0&file_id=a99eb027e35649d79e9c070539b6fb00&sign=8a1cc8517f6dfdca5a98e8749e6d6bdb&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3JkfAfESRKvePEcuabqIc5YHOwTcZpGckIgNxE5KaE9VaaOzLa7CA0Ou-V1V2BgVcUdNES7EnFDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'},
+            {'label':'banana_next','aid':'7640471652668656937','share':'https://v.douyin.com/pwgGbiXYTic/','url':'https://www.douyin.com/aweme/v1/play/?video_id=v0300fg10000d846fdnog65m7qk4mlmg&line=0&file_id=fd78c6635ae34977a9dd3c1a6f562f34&sign=faecf0307c3cda05ac1ed90a40988f54&is_play_url=1&source=PackSourceEnum_PUBLISH&biz_sign=NRPI1lC4AlkgB1YZ_o3JxvAfESRKvePEcuab8ogycHOwTcZpBM5Am54a_rnT9VaaOzLa7CA0Ou-V1V2BgVcUdNES7EbGDGbNHaUZIZuaRMUGyO7s5wbVW7et0I2xs1hA&aid=6383'},
+          ]
+          extra_aids=['7666840511826775339','7650121344763399459','7626746289266478390']
+          result={'references':{},'music':{},'candidates':{},'errors':[]}
+
+          async def get_cookie():
+            async with async_playwright() as p:
+              browser=await p.chromium.launch(headless=True,args=['--no-sandbox','--disable-blink-features=AutomationControlled'])
+              ctx=await browser.new_context(user_agent=UA,locale='zh-CN')
+              page=await ctx.new_page()
+              try:
+                await page.goto('https://www.douyin.com/',wait_until='domcontentloaded',timeout=60000)
+                await page.wait_for_timeout(5000)
+              except Exception as e:
+                result['errors'].append('cookie page: '+repr(e))
+              cs=await ctx.cookies(); await browser.close()
+              return '; '.join(f"{c['name']}={c['value']}" for c in cs if c.get('name'))
+
+          def find_aweme(raw):
+            if not isinstance(raw,dict): return {}
+            if isinstance(raw.get('aweme_detail'),dict): return raw['aweme_detail']
+            if isinstance(raw.get('aweme_list'),list) and raw['aweme_list']: return raw['aweme_list'][0]
+            if isinstance(raw.get('item_list'),list) and raw['item_list']: return raw['item_list'][0]
+            if isinstance(raw.get('data'),dict): return find_aweme(raw['data'])
+            return raw if 'aweme_id' in raw else {}
+
+          async def inspect_music(cookie):
+            kwargs={'headers':{'User-Agent':UA,'Referer':'https://www.douyin.com/'},'proxies':{'http://':None,'https://':None},'timeout':30,'cookie':cookie}
+            h=DouyinHandler(kwargs)
+            for aid in [s['aid'] for s in samples]+extra_aids:
+              try:
+                v=await h.fetch_one_video(aid)
+                raw=v._to_raw(); aw=find_aweme(raw); m=aw.get('music') or {}
+                result['music'][aid]={
+                  'title':m.get('title'),'author':m.get('author'),'id':m.get('id'),'mid':m.get('mid'),
+                  'owner_nickname':m.get('owner_nickname'),'is_original':m.get('is_original'),
+                  'is_original_sound':m.get('is_original_sound'), 'duration':m.get('duration')
+                }
+              except Exception as e:
+                result['errors'].append(f'music {aid}: {type(e).__name__}: {e}')
+
+          def analyze_audio(path,start,dur):
+            y,sr=librosa.load(path,sr=22050,offset=start,duration=dur,mono=True)
+            if len(y)<100: return {}
+            rms=float(np.sqrt(np.mean(y*y))+1e-12); rms_db=20*math.log10(rms)
+            try:
+              f0,voiced_flag,voiced_prob=librosa.pyin(y,fmin=70,fmax=400,sr=sr)
+              vals=f0[np.isfinite(f0)]
+              f0med=float(np.median(vals)) if len(vals) else None
+              f0iqr=float(np.percentile(vals,75)-np.percentile(vals,25)) if len(vals)>5 else None
+            except Exception:
+              f0med=f0iqr=None
+            cent=float(np.mean(librosa.feature.spectral_centroid(y=y,sr=sr)))
+            zcr=float(np.mean(librosa.feature.zero_crossing_rate(y)))
+            return {'rms_db':round(rms_db,2),'f0_median_hz':None if f0med is None else round(f0med,1),'f0_iqr_hz':None if f0iqr is None else round(f0iqr,1),'spectral_centroid_hz':round(cent,1),'zcr':round(zcr,4)}
+
+          def download_refs():
+            headers={'User-Agent':UA,'Referer':'https://www.douyin.com/'}
+            with httpx.Client(headers=headers,follow_redirects=True,timeout=90) as c:
+              for s in samples:
+                try:
+                  r=c.get(s['url']); r.raise_for_status(); mp4=root/f"{s['label']}.mp4"; mp4.write_bytes(r.content)
+                  clip=refdir/f"{s['label']}_hook_9s.mp3"
+                  subprocess.run(['ffmpeg','-y','-loglevel','error','-i',str(mp4),'-t','9','-vn','-ac','1','-ar','44100','-b:a','96k',str(clip)],check=True)
+                  wav=root/f"{s['label']}.wav"
+                  subprocess.run(['ffmpeg','-y','-loglevel','error','-i',str(mp4),'-vn','-ac','1','-ar','22050',str(wav)],check=True)
+                  result['references'][s['label']]={
+                    'hook_clip':str(clip),
+                    'question_approx':analyze_audio(str(wav),0,5.5),
+                    'explainer_approx':analyze_audio(str(wav),6.0,8.0),
+                  }
+                except Exception as e:
+                  result['errors'].append(f"ref {s['label']}: {type(e).__name__}: {e}")
+
+          async def synth_one(text,voice,rate,pitch,volume,out):
+            c=edge_tts.Communicate(text,voice=voice,rate=rate,pitch=pitch,volume=volume)
+            await c.save(str(out))
+
+          async def make_candidates():
+            q='只要把每天的时间安排得足够满，不浪费一分钟，效率自然就会越来越高，对吗？'
+            a='不对。你甚至可能越努力安排时间，事情拖得越久。因为真正的问题，不是你安排得不够好，而是你把自己的时间利用率拉得太满了。'
+            configs={
+              'A_yunxi_yunjian':{
+                'q':('zh-CN-YunxiNeural','-6%','-6Hz','-6%'),
+                'a':('zh-CN-YunjianNeural','+5%','+0Hz','+2%'),
+                'note':'年轻偏弱提问 + 更硬朗纪录片式解释'},
+              'B_yunxia_yunyang':{
+                'q':('zh-CN-YunxiaNeural','-4%','-5Hz','-5%'),
+                'a':('zh-CN-YunyangNeural','+3%','-2Hz','+2%'),
+                'note':'更柔和少年感提问 + 专业旁白解释'},
+              'C_yunxi_yunfeng':{
+                'q':('zh-CN-YunxiNeural','-8%','-8Hz','-7%'),
+                'a':('zh-CN-YunfengNeural','+6%','+0Hz','+3%'),
+                'note':'更弱、更犹疑的提问 + 更强势、更厚的解释'},
+            }
+            for name,cfg in configs.items():
+              qf=canddir/f'{name}_q.mp3'; af=canddir/f'{name}_a.mp3'
+              await synth_one(q,*cfg['q'],qf); await synth_one(a,*cfg['a'],af)
+              qa=AudioSegment.from_file(qf)-1.5
+              aa=AudioSegment.from_file(af)+1.0
+              pair=qa+AudioSegment.silent(duration=170)+aa
+              out=canddir/f'{name}_pair.mp3'; pair.export(out,format='mp3',bitrate='128k')
+              result['candidates'][name]={'pair':str(out),'question_voice':cfg['q'][0],'answer_voice':cfg['a'][0],'note':cfg['note']}
+              qf.unlink(missing_ok=True); af.unlink(missing_ok=True)
+
+          async def main():
+            cookie=await get_cookie()
+            await inspect_music(cookie)
+            download_refs()
+            await make_candidates()
+            # remove full source media; retain short reference excerpts only
+            for p in root.glob('*.mp4'): p.unlink(missing_ok=True)
+            for p in root.glob('*.wav'): p.unlink(missing_ok=True)
+            (root/'analysis.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+            print(json.dumps(result,ensure_ascii=False,indent=2))
+          asyncio.run(main())
+          PY
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: douyin-audio-analysis
+          path: audio_analysis/
+          if-no-files-found: warn
