@@ -1,0 +1,79 @@
+name: tmp-douyin-search-api-probe
+
+on:
+  push:
+    branches:
+      - tmp/douyin-account-research-20260817
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install browser
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Probe search responses
+        run: |
+          python - <<'PY'
+          import asyncio, json, urllib.parse
+          from pathlib import Path
+          from playwright.async_api import async_playwright
+
+          Q='猪猪侠 心理学 人生'
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+          out=[]
+          async def main():
+            async with async_playwright() as p:
+              browser=await p.chromium.launch(headless=True,args=['--no-sandbox','--disable-blink-features=AutomationControlled'])
+              ctx=await browser.new_context(user_agent=UA,locale='zh-CN',viewport={'width':1440,'height':1200})
+              page=await ctx.new_page()
+              async def handle(resp):
+                u=resp.url
+                if 'search' not in u.lower(): return
+                rec={'url':u,'status':resp.status,'headers':{k:v for k,v in (await resp.all_headers()).items() if k.lower() in ('content-type','content-encoding')}}
+                try:
+                  body=await resp.body()
+                  rec['bytes']=len(body)
+                  ct=rec['headers'].get('content-type','')
+                  if 'json' in ct or body[:1] in (b'{',b'['):
+                    try:
+                      obj=json.loads(body.decode('utf-8','replace'))
+                      rec['json']=obj
+                    except Exception as e:
+                      rec['preview']=body[:1000].decode('utf-8','replace'); rec['parse_error']=str(e)
+                  else:
+                    rec['preview']=body[:500].decode('utf-8','replace')
+                except Exception as e:
+                  rec['body_error']=str(e)
+                out.append(rec)
+                print('\nSEARCH RESPONSE',resp.status,u[:350],rec.get('bytes'),rec['headers'])
+                if 'json' in rec:
+                  print('JSON_KEYS', list(rec['json'].keys())[:30] if isinstance(rec['json'],dict) else type(rec['json']))
+              page.on('response',lambda r: asyncio.create_task(handle(r)))
+              url='https://www.douyin.com/search/'+urllib.parse.quote(Q)
+              await page.goto(url,wait_until='domcontentloaded',timeout=60000)
+              await page.wait_for_timeout(12000)
+              for _ in range(3):
+                await page.mouse.wheel(0,1600); await page.wait_for_timeout(1800)
+              await page.wait_for_timeout(3000)
+              await browser.close()
+          asyncio.run(main())
+          Path('douyin_search_probe.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('TOTAL',len(out))
+          PY
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: douyin-search-probe
+          path: douyin_search_probe.json
+          if-no-files-found: warn
