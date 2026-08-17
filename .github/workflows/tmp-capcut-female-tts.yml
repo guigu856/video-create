@@ -5,54 +5,98 @@ on:
 permissions:
   contents: read
 jobs:
-  qwen:
+  voice-design:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        idx: [1,2,3,4,5,6,7,8]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Generate stronger Vivian variants
+      - name: Generate one female voice candidate
         shell: bash
         continue-on-error: true
+        env:
+          IDX: ${{ matrix.idx }}
         run: |
           set -u
           pip install -U gradio_client
-          mkdir -p output/vivian-strong
+          mkdir -p output/voice-candidates
           python - <<'PY'
-          import shutil, json
+          import os, shutil, json
           from pathlib import Path
           from gradio_client import Client
-          out=Path('output/vivian-strong')
+
+          idx=int(os.environ['IDX'])
+          cases={
+            1:(
+              'Q1_清冷轻声',
+              '把每天的时间安排得越满，效率就越高，对吗？',
+              '二十多岁的年轻中国女性。清冷、清透、偏轻的声线，声音不甜不嗲，气息自然，力度偏弱，像平静地提出一个自己觉得可能正确的观点。语速自然，句尾“对吗”轻微上扬。不要主播腔，不要客服腔，不要可爱萝莉感。'
+            ),
+            2:(
+              'Q2_自然邻家',
+              '把每天的时间安排得越满，效率就越高，对吗？',
+              '二十多岁的中国女性，自然生活化的女声，亲近但不甜，声音稍薄、力度偏弱，像朋友聊天时随口提出一个直觉判断。咬字自然，不要刻意表演，句尾有轻微疑问感。不要播音腔，不要客服感。'
+            ),
+            3:(
+              'Q3_知性偏低',
+              '把每天的时间安排得越满，效率就越高，对吗？',
+              '年轻知性中国女性，音色比普通年轻女声略低一点、稍有磁性，但整体力度仍偏轻。语气冷静、克制、理性，像在提出一个值得讨论的问题。不要成熟大姐感，不要新闻主播腔。'
+            ),
+            4:(
+              'Q4_慵懒克制',
+              '把每天的时间安排得越满，效率就越高，对吗？',
+              '年轻中国女性，略带慵懒和松弛感，音色清晰但不亮，气息感轻微，声音不强势，语气克制自然。像不经意地抛出一个问题，句尾轻轻上扬。不要嗲，不要萌，不要广播腔。'
+            ),
+            5:(
+              'E1_冷静强势',
+              '不对。真正高效的系统，必须给意外留出余量。',
+              '二十多岁到三十岁之间的中国女性。冷静、强势、确定，音色中低、清晰、有质感。开头“不对”两个字短促、硬、有结论感，随后稍停顿，再用稳定有压迫感的语气解释。不要喊叫，不要新闻主播腔，不要情绪过度。'
+            ),
+            6:(
+              'E2_低沉知性',
+              '不对。真正高效的系统，必须给意外留出余量。',
+              '知性中国女性，中低音、略有磁性，声音厚度比普通年轻女声更足。语速偏稳，咬字清楚，气势来自确定感而不是音量。开头“不对”要干净利落，后面像在解释一个不容混淆的事实。不要播音腔。'
+            ),
+            7:(
+              'E3_果断利落',
+              '不对。真正高效的系统，必须给意外留出余量。',
+              '年轻中国女性，声音干净、利落、有锋利感，音高适中偏低。语速稍快但非常清晰，重音明确，开头“不对”像立即纠正错误，后续解释有节奏、有推动力。不要喊，不要甜，不要客服腔。'
+            ),
+            8:(
+              'E4_成熟压迫感',
+              '不对。真正高效的系统，必须给意外留出余量。',
+              '三十岁左右的中国女性，中低沉、成熟但不老成，声音有厚度和压迫感。语气克制、冷静、非常笃定，像一个很有判断力的人直接给出结论。“不对”短而重，后文稳定推进。不要新闻播报腔，不要夸张。'
+            ),
+          }
+          name,text,desc=cases[idx]
+          out=Path('output/voice-candidates')
           c=Client('Qwen/Qwen3-TTS')
-          cases=[
-            ('02A_Vivian_更强势','不对。真正高效的系统，必须给意外留出余量。','年轻知性女声。整体语气比普通讲解更强势、更确定、更有压迫感；音高稍低，咬字更实，节奏稳。开头“不对”两个字要短、硬、直接下结论，随后略停顿再解释。不要喊叫，不要新闻主播腔，不要温柔安慰感。'),
-            ('02B_Vivian_冷硬版','不对。真正高效的系统，必须给意外留出余量。','年轻女声，冷静、克制、强势，像非常确定地纠正一个错误观点。声线保持自然但更低沉一点，语速略慢，重音落在“不对”“高效”“必须”“余量”。“不对”短促有力，解释部分稳而有气场；不要吼，不要夸张表演。'),
-          ]
-          results=[]
-          for name,text,instruct in cases:
-            try:
-              r=c.predict(text,'Chinese','Vivian',instruct,'0.6B',api_name='/generate_custom_voice')
-              audio=r[0] if isinstance(r,(list,tuple)) else r
-              if audio and Path(str(audio)).exists():
-                dst=out/f'{name}{Path(str(audio)).suffix or ".wav"}'
-                shutil.copy2(str(audio),dst)
-                results.append({'name':name,'file':dst.name,'status':r[1] if isinstance(r,(list,tuple)) and len(r)>1 else ''})
-                print('SAVED',dst)
-              else:
-                results.append({'name':name,'error':repr(r)})
-            except Exception as e:
-              results.append({'name':name,'error':repr(e)})
-              print('FAILED',name,repr(e))
-          (out/'index.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
-          print(json.dumps(results,ensure_ascii=False,indent=2))
+          try:
+            r=c.predict(text,'Chinese',desc,api_name='/generate_voice_design')
+            audio=r[0] if isinstance(r,(list,tuple)) else r
+            if audio and Path(str(audio)).exists():
+              dst=out/f'{name}{Path(str(audio)).suffix or ".wav"}'
+              shutil.copy2(str(audio),dst)
+              meta={'idx':idx,'name':name,'file':dst.name,'status':r[1] if isinstance(r,(list,tuple)) and len(r)>1 else ''}
+            else:
+              meta={'idx':idx,'name':name,'error':repr(r)}
+          except Exception as e:
+            meta={'idx':idx,'name':name,'error':repr(e)}
+          (out/f'{idx:02d}_meta.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(meta,ensure_ascii=False))
           PY
-      - name: Upload samples
+      - name: Upload candidate
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vivian-stronger-variants
-          path: output/vivian-strong/
+          name: female-voice-candidate-${{ matrix.idx }}
+          path: output/voice-candidates/
           if-no-files-found: warn
           retention-days: 7
