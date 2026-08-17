@@ -1,0 +1,74 @@
+name: tmp-capcut-female-tts
+on:
+  push:
+    branches: [tmp/capcut-female-tts-20260818]
+permissions:
+  contents: read
+jobs:
+  synth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/K07VN/capcut-tts-api.git /tmp/capcut
+          pip install requests
+          mkdir -p output/capcut-female
+          cd /tmp/capcut
+          python - <<'PY'
+          import json, os, re, time
+          from pathlib import Path
+          import requests
+          from capcut_tts_api import CapCutClient
+          out=Path(os.environ['GITHUB_WORKSPACE'])/'output'/'capcut-female'
+          voices=json.loads(Path('Voice.json').read_text(encoding='utf-8'))
+          zh=[v for v in voices if str(v.get('lang','')).lower()=='zh-cn']
+          keys=['female','xiaonan','tianmei','qingxin','maomao','yuewen','cancan','sisi','nv','girl','jie','mei','xiaoyi','xiaohe']
+          female=[v for v in zh if any(k in str(v.get('voice_type','')).lower() for k in keys)]
+          print('ZH',len(zh),'FEMALE',len(female))
+          for v in female: print(v)
+          text='把每天的时间安排得越满，效率就越高，对吗？不对。真正高效的系统，必须给意外留出余量。'
+          client=CapCutClient(); successes=[]
+          def walk(o):
+            if isinstance(o,dict):
+              for x in o.values(): yield from walk(x)
+            elif isinstance(o,list):
+              for x in o: yield from walk(x)
+            elif isinstance(o,str): yield o
+          for i,v in enumerate(female[:30],1):
+            if len(successes)>=10: break
+            vt=v['voice_type']; name=v.get('display_name') or vt
+            try:
+              print('TRY',i,name,vt)
+              res=client.generate_speech(texts=text,voice=vt,resource_id=v.get('resource_id'),rate='1.0',wait=True,timeout=35)
+              urls=[s for s in walk(res) if s.startswith(('http://','https://'))]
+              print('URLS',urls)
+              audio=None
+              for u in urls:
+                try:
+                  r=requests.get(u,timeout=30,headers={'User-Agent':'Mozilla/5.0'})
+                  if r.ok and len(r.content)>2000:
+                    audio=r.content; break
+                except Exception as e: print('DLERR',e)
+              if audio:
+                safe=re.sub(r'[^0-9A-Za-z\u4e00-\u9fff._-]+','_',name)[:40]
+                fn=out/f'{len(successes)+1:02d}_{safe}.mp3'; fn.write_bytes(audio)
+                successes.append({'name':name,'voice_type':vt,'resource_id':v.get('resource_id'),'file':fn.name})
+                print('SAVED',fn)
+            except Exception as e: print('FAIL',vt,repr(e))
+            time.sleep(.3)
+          (out/'index.json').write_text(json.dumps(successes,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('SUCCESS',len(successes))
+          if not successes: raise SystemExit(2)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capcut-chinese-female-tts-samples
+          path: output/capcut-female/
+          retention-days: 7
