@@ -1,0 +1,144 @@
+name: tmp-douyin-related-graph
+
+on:
+  push:
+    branches:
+      - tmp/douyin-account-research-20260817
+
+permissions:
+  contents: read
+
+jobs:
+  related:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install F2 and browser
+        run: |
+          pip install 'git+https://github.com/Johnserf-Seed/f2.git@main' playwright
+          python -m playwright install --with-deps chromium
+      - name: Fetch related videos
+        run: |
+          python - <<'PY'
+          import asyncio, json, traceback
+          from pathlib import Path
+          from collections import defaultdict
+          from playwright.async_api import async_playwright
+          from f2.apps.douyin.handler import DouyinHandler
+
+          PROFILE='https://www.douyin.com/user/MS4wLjABAAAAKiRCAF8NhvAmqQMJ6RLTSWqloe-WWzmrq9WeAaJmqqQ'
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0'
+          seeds={
+            '37percent':'7663792337906473466',
+            'local_optimum':'7663137524400149093',
+            'wallenda':'7669091865526009531',
+            'drm_memory':'7671314538517155098',
+          }
+          out={'seeds':seeds,'related':{},'authors':{},'errors':[]}
+
+          async def get_cookie():
+            async with async_playwright() as p:
+              browser=await p.chromium.launch(headless=True,args=['--no-sandbox','--disable-blink-features=AutomationControlled'])
+              ctx=await browser.new_context(user_agent=UA,locale='zh-CN',viewport={'width':1440,'height':1000})
+              page=await ctx.new_page()
+              try:
+                await page.goto(PROFILE,wait_until='domcontentloaded',timeout=60000)
+              except Exception: pass
+              await page.wait_for_timeout(9000)
+              cookies=await ctx.cookies()
+              await browser.close()
+              return '; '.join(f"{c['name']}={c['value']}" for c in cookies if c.get('name'))
+
+          def flatten_raw(raw):
+            if isinstance(raw,list): return [x for x in raw if isinstance(x,dict)]
+            if not isinstance(raw,dict): return []
+            for k in ('aweme_list','aweme_data_list','data'):
+              if isinstance(raw.get(k),list): return [x for x in raw[k] if isinstance(x,dict)]
+            return []
+
+          def normalize(x):
+            author=x.get('author') or {}
+            stats=x.get('statistics') or {}
+            return {
+              'aweme_id':str(x.get('aweme_id') or x.get('awemeId') or ''),
+              'desc':x.get('desc') or '',
+              'create_time':x.get('create_time'),
+              'nickname':author.get('nickname') or '',
+              'sec_uid':author.get('sec_uid') or author.get('sec_user_id') or '',
+              'uid':str(author.get('uid') or ''),
+              'unique_id':author.get('unique_id') or '',
+              'signature':author.get('signature') or '',
+              'follower_count':(author.get('follower_count') or author.get('follower_status')),
+              'digg_count':stats.get('digg_count'),
+              'comment_count':stats.get('comment_count'),
+              'collect_count':stats.get('collect_count'),
+              'share_count':stats.get('share_count'),
+            }
+
+          async def main():
+            cookie=await get_cookie()
+            kwargs={'headers':{'User-Agent':UA,'Referer':PROFILE},'proxies':{'http://':None,'https://':None},'timeout':2,'cookie':cookie}
+            h=DouyinHandler(kwargs)
+            author_map=defaultdict(lambda:{'nickname':'','sec_uid':'','uid':'','unique_id':'','signature':'','seed_hits':set(),'videos':[]})
+            for label,aid in seeds.items():
+              arr=[]; seen=set()
+              try:
+                async for batch in h.fetch_related_videos(aid,'',20,40):
+                  try: raw=batch._to_raw()
+                  except Exception:
+                    try: raw=batch._to_dict()
+                    except Exception: raw=None
+                  candidates=flatten_raw(raw)
+                  # fallback to filter list conversion
+                  if not candidates:
+                    try: candidates=batch._to_list()
+                    except Exception: candidates=[]
+                  for x in candidates:
+                    n=normalize(x)
+                    if not n['aweme_id']:
+                      # filter_to_list may flatten author fields already
+                      n={
+                        'aweme_id':str(x.get('aweme_id') or ''),'desc':x.get('desc') or '',
+                        'create_time':x.get('create_time'),'nickname':x.get('nickname') or '',
+                        'sec_uid':x.get('sec_uid') or x.get('sec_user_id') or '',
+                        'uid':str(x.get('uid') or x.get('user_id') or ''),'unique_id':x.get('unique_id') or '',
+                        'signature':x.get('signature') or '', 'follower_count':x.get('follower_count'),
+                        'digg_count':x.get('digg_count'),'comment_count':x.get('comment_count'),
+                        'collect_count':x.get('collect_count'),'share_count':x.get('share_count')}
+                    if not n['aweme_id'] or n['aweme_id'] in seen: continue
+                    seen.add(n['aweme_id']); arr.append(n)
+                    key=n['sec_uid'] or n['uid'] or n['nickname']
+                    if key:
+                      a=author_map[key]
+                      for fld in ('nickname','sec_uid','uid','unique_id','signature'):
+                        if n.get(fld): a[fld]=n[fld]
+                      a['seed_hits'].add(label); a['videos'].append({k:n.get(k) for k in ('aweme_id','desc','digg_count','comment_count','collect_count','share_count')})
+                  if len(arr)>=40: break
+              except Exception as e:
+                out['errors'].append(f'{label}: {type(e).__name__}: {e}\n{traceback.format_exc()}')
+              out['related'][label]=arr
+              print('\nSEED',label,'related',len(arr))
+              for n in arr[:15]: print(n['nickname'],n['desc'][:70],n['digg_count'],n['sec_uid'][:20])
+            for key,a in author_map.items():
+              a['seed_hits']=sorted(a['seed_hits'])
+              out['authors'][key]=a
+            ranked=sorted(out['authors'].values(),key=lambda a:(len(a['seed_hits']),len(a['videos'])),reverse=True)
+            print('\n=== TOP AUTHORS ===')
+            for a in ranked[:50]:
+              print(len(a['seed_hits']),len(a['videos']),a['nickname'],a['unique_id'],a['signature'][:80])
+              for v in a['videos'][:4]: print(' -',v['desc'][:100],v['digg_count'])
+            Path('douyin_related_graph.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+
+          asyncio.run(main())
+          PY
+      - name: Upload related graph
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: douyin-related-graph
+          path: douyin_related_graph.json
+          if-no-files-found: warn
