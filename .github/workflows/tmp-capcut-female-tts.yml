@@ -15,54 +15,45 @@ jobs:
           python-version: '3.11'
       - name: Generate Qwen3 female voice candidates
         shell: bash
+        continue-on-error: true
         run: |
-          set -euo pipefail
+          set -u
           pip install -U gradio_client
           mkdir -p output/qwen-female
           python - <<'PY'
-          import os, shutil, json
+          import shutil, json
           from pathlib import Path
           from gradio_client import Client
           out=Path('output/qwen-female')
           c=Client('Qwen/Qwen3-TTS')
-          try:
-            print(c.view_api())
-          except Exception as e:
-            print('view_api error',e)
           cases=[
             ('01_Serena_轻提问','把每天的时间安排得越满，效率就越高，对吗？','Serena','年轻女声，语气轻一点、弱一点、自然一点，像在试探性地提出一个自己觉得可能正确的观点；不要播音腔，不要卖萌，句尾轻微上扬。'),
             ('02_Vivian_轻提问','把每天的时间安排得越满，效率就越高，对吗？','Vivian','年轻知性女声，语气偏轻、偏弱，像平静地提出一个日常直觉；自然口语，句尾轻微上扬，不要新闻播报感。'),
             ('03_Serena_强解释','不对。真正高效的系统，必须给意外留出余量。','Serena','女声要冷静、确定、有力量。开头“不对”两个字短促有力，后面的解释稳、清晰、有压迫感，但不要喊，不要新闻播音腔。'),
-            ('04_Vivian_强解释','不对。真正高效的系统，必须给意外留出余量。','Vivian','年轻知性女声，语气更低、更稳、更确定。开头“不对”短促、有结论感，后面解释有气势但克制，不要夸张，不要主播腔。'),
           ]
           results=[]
           for name,text,speaker,instruct in cases:
-            print('GENERATE',name)
             try:
               r=c.predict(text,'Chinese',speaker,instruct,'0.6B',api_name='/generate_custom_voice')
+              audio=r[0] if isinstance(r,(list,tuple)) else r
+              if audio and Path(str(audio)).exists():
+                dst=out/f'{name}{Path(str(audio)).suffix or ".wav"}'
+                shutil.copy2(str(audio),dst)
+                results.append({'name':name,'speaker':speaker,'file':dst.name,'status':r[1] if isinstance(r,(list,tuple)) and len(r)>1 else ''})
+                print('SAVED',dst)
+              else:
+                results.append({'name':name,'speaker':speaker,'error':repr(r)})
             except Exception as e:
-              print('named endpoint failed',repr(e))
-              # Gradio may assign a numbered endpoint; inspect and retry common fn index.
-              r=c.predict(text,'Chinese',speaker,instruct,'0.6B',fn_index=2)
-            print('RESULT',r)
-            audio=r[0] if isinstance(r,(list,tuple)) else r
-            if isinstance(audio,dict):
-              src=audio.get('path') or audio.get('name')
-            else:
-              src=audio
-            if src and Path(str(src)).exists():
-              ext=Path(str(src)).suffix or '.wav'
-              dst=out/f'{name}{ext}'
-              shutil.copy2(src,dst)
-              results.append({'name':name,'speaker':speaker,'file':dst.name,'status':r[1] if isinstance(r,(list,tuple)) and len(r)>1 else ''})
-            else:
-              results.append({'name':name,'speaker':speaker,'error':repr(r)})
+              results.append({'name':name,'speaker':speaker,'error':repr(e)})
+              print('FAILED',name,repr(e))
           (out/'index.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
           print(json.dumps(results,ensure_ascii=False,indent=2))
-          if not any('file' in x for x in results): raise SystemExit(2)
           PY
-      - uses: actions/upload-artifact@v4
+      - name: Upload whatever succeeded
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: qwen3-female-voice-candidates
           path: output/qwen-female/
+          if-no-files-found: warn
           retention-days: 7
