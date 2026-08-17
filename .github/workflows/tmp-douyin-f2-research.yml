@@ -1,0 +1,121 @@
+name: tmp-douyin-f2-research
+
+on:
+  push:
+    branches:
+      - tmp/douyin-account-research-20260817
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-posts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install F2 and browser
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'git+https://github.com/Johnserf-Seed/f2.git@main' playwright
+          python -m playwright install --with-deps chromium
+      - name: Fetch public account posts
+        env:
+          SEC_USER_ID: MS4wLjABAAAAKiRCAF8NhvAmqQMJ6RLTSWqloe-WWzmrq9WeAaJmqqQ
+          PROFILE_URL: https://www.douyin.com/user/MS4wLjABAAAAKiRCAF8NhvAmqQMJ6RLTSWqloe-WWzmrq9WeAaJmqqQ
+        run: |
+          python - <<'PY'
+          import asyncio
+          import json
+          import os
+          import traceback
+          from pathlib import Path
+
+          from playwright.async_api import async_playwright
+          from f2.apps.douyin.handler import DouyinHandler
+
+          SEC = os.environ['SEC_USER_ID']
+          PROFILE = os.environ['PROFILE_URL']
+          UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0'
+          out = {'sec_user_id': SEC, 'profile_url': PROFILE, 'cookie_names': [], 'posts': [], 'errors': []}
+
+          def add_raw(raw):
+              if raw is None:
+                  return
+              candidates = raw if isinstance(raw, list) else [raw]
+              for x in candidates:
+                  if not isinstance(x, dict):
+                      continue
+                  # Some filter outputs wrap a list under an aweme-related key.
+                  nested = None
+                  for key in ('aweme_list', 'aweme_data_list', 'data'):
+                      if isinstance(x.get(key), list):
+                          nested = x[key]
+                          break
+                  if nested is not None:
+                      for item in nested:
+                          if isinstance(item, dict):
+                              add_raw(item)
+                      continue
+                  aid = str(x.get('aweme_id') or x.get('awemeId') or x.get('id') or '')
+                  if aid and not any(str(p.get('aweme_id') or p.get('awemeId') or p.get('id') or '') == aid for p in out['posts']):
+                      out['posts'].append(x)
+
+          async def get_cookie():
+              async with async_playwright() as p:
+                  browser = await p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-blink-features=AutomationControlled'])
+                  context = await browser.new_context(user_agent=UA, locale='zh-CN', viewport={'width':1440,'height':1000})
+                  page = await context.new_page()
+                  try:
+                      await page.goto(PROFILE, wait_until='domcontentloaded', timeout=60000)
+                  except Exception as e:
+                      out['errors'].append(f'browser goto: {type(e).__name__}: {e}')
+                  await page.wait_for_timeout(10000)
+                  cookies = await context.cookies()
+                  out['cookie_names'] = [c.get('name') for c in cookies]
+                  cookie = '; '.join(f"{c['name']}={c['value']}" for c in cookies if c.get('name'))
+                  await browser.close()
+                  return cookie
+
+          async def main():
+              cookie = await get_cookie()
+              print('visitor cookie names:', out['cookie_names'])
+              kwargs = {
+                  'headers': {'User-Agent': UA, 'Referer': PROFILE},
+                  'proxies': {'http://': None, 'https://': None},
+                  'timeout': 30,
+                  'cookie': cookie,
+              }
+              try:
+                  handler = DouyinHandler(kwargs)
+                  async for batch in handler.fetch_user_post_videos(SEC, 0, 0, 10, 100):
+                      try:
+                          raw = batch._to_raw()
+                      except Exception:
+                          try:
+                              raw = batch._to_dict()
+                          except Exception:
+                              raw = None
+                      add_raw(raw)
+                      print('collected posts:', len(out['posts']))
+                      if len(out['posts']) >= 29:
+                          break
+              except Exception as e:
+                  out['errors'].append(f'F2: {type(e).__name__}: {e}\n{traceback.format_exc()}')
+
+              Path('douyin_posts.json').write_text(json.dumps(out, ensure_ascii=False, indent=2, default=str), encoding='utf-8')
+              print('=== F2 RESULT ===')
+              print(json.dumps({'posts_count': len(out['posts']), 'cookie_names': out['cookie_names'], 'errors': out['errors']}, ensure_ascii=False, indent=2))
+
+          asyncio.run(main())
+          PY
+      - name: Upload posts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: douyin-f2-posts
+          path: douyin_posts.json
+          if-no-files-found: warn
