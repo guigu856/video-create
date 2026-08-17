@@ -1,0 +1,148 @@
+name: tmp-douyin-av-new-account
+
+on:
+  push:
+    branches:
+      - tmp/douyin-audio-visual-20260818
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'git+https://github.com/Johnserf-Seed/f2.git@main' playwright httpx pillow faster-whisper
+          python -m playwright install --with-deps chromium
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+      - name: Resolve, collect, sample, transcribe and frame
+        run: |
+          python - <<'PY'
+          import asyncio, json, re, subprocess, traceback, statistics
+          from pathlib import Path
+          import httpx
+          from PIL import Image, ImageOps, ImageDraw
+          from faster_whisper import WhisperModel
+          from playwright.async_api import async_playwright
+          from f2.apps.douyin.handler import DouyinHandler
+
+          SHARE='https://v.douyin.com/VB5bCq8rt_Y/'
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0'
+          root=Path('av_result'); root.mkdir(exist_ok=True)
+          out={'share_url':SHARE,'profile':{},'posts':[],'samples':{},'errors':[]}
+
+          def flatten(raw, dst):
+            if raw is None: return
+            xs=raw if isinstance(raw,list) else [raw]
+            for x in xs:
+              if not isinstance(x,dict): continue
+              nested=False
+              for key in ('aweme_list','aweme_data_list','data'):
+                if isinstance(x.get(key),list):
+                  nested=True
+                  for it in x[key]: flatten(it,dst)
+              if nested: continue
+              aid=str(x.get('aweme_id') or x.get('id') or '')
+              if aid and not any(str(y.get('aweme_id'))==aid for y in dst): dst.append(x)
+
+          async def collect():
+            async with async_playwright() as pw:
+              b=await pw.chromium.launch(headless=True,args=['--no-sandbox','--disable-blink-features=AutomationControlled'])
+              ctx=await b.new_context(user_agent=UA,locale='zh-CN',viewport={'width':1440,'height':1100})
+              page=await ctx.new_page()
+              await page.goto(SHARE,wait_until='domcontentloaded',timeout=60000)
+              await page.wait_for_timeout(7000)
+              out['final_url']=page.url; out['title']=await page.title(); out['body_text']=(await page.locator('body').inner_text())[:6000]
+              m=re.search(r'/user/([^/?#]+)',page.url); sec=m.group(1) if m else ''
+              out['sec_user_id']=sec
+              cookies=await ctx.cookies(); cookie='; '.join(f"{c['name']}={c['value']}" for c in cookies if c.get('name'))
+              await b.close()
+            if not sec: return
+            h=DouyinHandler({'headers':{'User-Agent':UA,'Referer':out['final_url']},'proxies':{'http://':None,'https://':None},'timeout':30,'cookie':cookie})
+            try:
+              pf=await h.fetch_user_profile(sec); out['profile']=pf._to_dict()
+            except Exception as e: out['errors'].append('profile '+repr(e))
+            posts=[]
+            try:
+              async for batch in h.fetch_user_post_videos(sec,0,0,10,100):
+                try: raw=batch._to_raw()
+                except Exception:
+                  try: raw=batch._to_dict()
+                  except Exception: raw=None
+                flatten(raw,posts)
+                if len(posts)>=40: break
+            except Exception as e: out['errors'].append('posts '+repr(e)+'\n'+traceback.format_exc())
+            out['_raw_posts']=posts
+            for p in posts:
+              s=p.get('statistics') or {}; v=p.get('video') or {}; a=p.get('author') or {}
+              out['posts'].append({'aweme_id':p.get('aweme_id'),'desc':p.get('desc'),'create_time':p.get('create_time'),'duration_ms':p.get('duration') or v.get('duration'),'digg':s.get('digg_count',0),'comment':s.get('comment_count',0),'collect':s.get('collect_count',0),'share':s.get('share_count',0),'is_top':p.get('is_top'),'nickname':a.get('nickname'),'play_url':((v.get('play_addr') or {}).get('url_list') or [None])[-1]})
+
+          asyncio.run(collect())
+          posts=out.pop('_raw_posts',[])
+          rows=out['posts']
+          if rows:
+            ranked=sorted(rows,key=lambda r:r.get('digg') or 0,reverse=True)
+            recent=sorted(rows,key=lambda r:r.get('create_time') or 0,reverse=True)
+            chosen=[]
+            for label,row in [('top',ranked[0]),('recent',recent[0]),('typical',ranked[len(ranked)//2])]:
+              if row['aweme_id'] not in [x[1]['aweme_id'] for x in chosen]: chosen.append((label,row))
+            headers={'User-Agent':UA,'Referer':'https://www.douyin.com/'}
+            with httpx.Client(headers=headers,follow_redirects=True,timeout=90) as c:
+              for label,row in chosen:
+                try:
+                  r=c.get(row['play_url']); r.raise_for_status(); mp4=root/f'{label}_{row["aweme_id"]}.mp4'; mp4.write_bytes(r.content)
+                  out['samples'][label]={'meta':row,'file':str(mp4),'bytes':len(r.content)}
+                except Exception as e: out['errors'].append(f'{label} download {e!r}')
+
+          model=WhisperModel('base',device='cpu',compute_type='int8')
+          for label,item in out['samples'].items():
+            mp4=Path(item['file'])
+            # duration and scene-change density
+            try:
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(mp4)],text=True).strip())
+              item['duration_s']=dur
+              pp=subprocess.run(['ffmpeg','-hide_banner','-i',str(mp4),'-vf',"select='gt(scene,0.18)',showinfo",'-f','null','-'],capture_output=True,text=True)
+              item['scene_change_times']=[float(x) for x in re.findall(r'pts_time:([0-9.]+)',pp.stderr)]
+            except Exception as e: out['errors'].append(f'{label} scene {e!r}')
+            # dense contact sheet: every 4 sec, max 30 frames
+            fd=root/f'frames_{label}'; fd.mkdir(exist_ok=True)
+            subprocess.run(['ffmpeg','-y','-loglevel','error','-i',str(mp4),'-vf','fps=1/4,scale=360:-2',str(fd/'%03d.jpg')],check=False)
+            frames=sorted(fd.glob('*.jpg'))[:30]; item['frame_count']=len(frames)
+            if frames:
+              thumbs=[]
+              for i,f in enumerate(frames):
+                im=Image.open(f).convert('RGB'); im=ImageOps.pad(im,(360,640),color='black'); dr=ImageDraw.Draw(im); dr.rectangle((0,0,88,28),fill='black'); dr.text((5,5),f'{i*4}s',fill='white'); thumbs.append(im)
+              cols=5; rr=(len(thumbs)+cols-1)//cols; sheet=Image.new('RGB',(cols*360,rr*640),'black')
+              for i,im in enumerate(thumbs): sheet.paste(im,((i%cols)*360,(i//cols)*640))
+              sp=root/f'contact_{label}.jpg'; sheet.save(sp,quality=84); item['contact_sheet']=str(sp)
+            try:
+              segs,info=model.transcribe(str(mp4),language='zh',vad_filter=True,beam_size=3)
+              arr=[{'start':round(s.start,2),'end':round(s.end,2),'text':s.text.strip()} for s in segs]
+              item['transcript']=arr
+              (root/f'transcript_{label}.json').write_text(json.dumps(arr,ensure_ascii=False,indent=2),encoding='utf-8')
+            except Exception as e: out['errors'].append(f'{label} asr {e!r}')
+            mp4.unlink(missing_ok=True)
+
+          (root/'summary.json').write_text(json.dumps(out,ensure_ascii=False,indent=2,default=str),encoding='utf-8')
+          print('ACCOUNT',out.get('profile',{}).get('nickname'),out.get('profile',{}).get('follower_count'),out.get('profile',{}).get('aweme_count'))
+          print('POSTS',len(out['posts']))
+          for r in sorted(out['posts'],key=lambda x:x.get('digg') or 0,reverse=True)[:12]: print(r)
+          for k,v in out['samples'].items(): print('\nSAMPLE',k,v['meta']['desc'], '\n', ''.join(x['text'] for x in v.get('transcript',[]))[:6000])
+          print('ERRORS',out['errors'])
+          PY
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: douyin-av-new-account
+          path: av_result/
+          if-no-files-found: warn
