@@ -1,0 +1,149 @@
+name: tmp-douyin-three-accounts
+
+on:
+  push:
+    branches:
+      - tmp/douyin-account-research-20260817
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install collectors
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'git+https://github.com/Johnserf-Seed/f2.git@main' playwright httpx pillow
+          python -m playwright install --with-deps chromium
+      - name: Resolve profiles and fetch posts
+        run: |
+          python - <<'PY'
+          import asyncio, json, re, traceback
+          from pathlib import Path
+          from urllib.parse import urlparse
+          from playwright.async_api import async_playwright
+          from f2.apps.douyin.handler import DouyinHandler
+
+          targets = [
+            {'key':'account_1','share_url':'https://v.douyin.com/g0-ZCEzzfQ4/'},
+            {'key':'account_2','share_url':'https://v.douyin.com/-qdBFBmoUns/'},
+            {'key':'account_3','share_url':'https://v.douyin.com/pwgGbiXYTic/'},
+          ]
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0'
+          out={'targets':[], 'errors':[]}
+
+          def add_raw(dst, raw):
+            if raw is None: return
+            candidates = raw if isinstance(raw,list) else [raw]
+            for x in candidates:
+              if not isinstance(x,dict): continue
+              for key in ('aweme_list','aweme_data_list','data'):
+                if isinstance(x.get(key),list):
+                  for it in x[key]: add_raw(dst,it)
+                  break
+              else:
+                aid=str(x.get('aweme_id') or x.get('awemeId') or x.get('id') or '')
+                if aid and not any(str(p.get('aweme_id') or '')==aid for p in dst): dst.append(x)
+
+          async def resolve_all():
+            async with async_playwright() as p:
+              browser=await p.chromium.launch(headless=True,args=['--no-sandbox','--disable-blink-features=AutomationControlled'])
+              ctx=await browser.new_context(user_agent=UA, locale='zh-CN', viewport={'width':1440,'height':1100})
+              page=await ctx.new_page()
+              resolved=[]
+              for t in targets:
+                item=dict(t); item['resolve_errors']=[]
+                try:
+                  await page.goto(t['share_url'],wait_until='domcontentloaded',timeout=60000)
+                  await page.wait_for_timeout(7000)
+                  final=page.url
+                  item['final_url']=final
+                  m=re.search(r'/user/([^/?#]+)',final)
+                  item['sec_user_id']=m.group(1) if m else ''
+                  item['title']=await page.title()
+                  item['body_text']=(await page.locator('body').inner_text())[:5000]
+                  cookies=await ctx.cookies()
+                  item['cookie']='; '.join(f"{c['name']}={c['value']}" for c in cookies if c.get('name'))
+                  item['cookie_names']=[c.get('name') for c in cookies]
+                except Exception as e:
+                  item['resolve_errors'].append(f'{type(e).__name__}: {e}')
+                resolved.append(item)
+              await browser.close()
+              return resolved
+
+          async def enrich(item):
+            sec=item.get('sec_user_id') or ''
+            profile=item.get('final_url') or item['share_url']
+            item['profile']={}; item['posts']=[]; item['fetch_errors']=[]
+            if not sec:
+              item['fetch_errors'].append('sec_user_id missing'); return item
+            kwargs={
+              'headers':{'User-Agent':UA,'Referer':profile},
+              'proxies':{'http://':None,'https://':None},
+              'timeout':30,
+              'cookie':item.get('cookie',''),
+            }
+            try:
+              h=DouyinHandler(kwargs)
+              try:
+                pf=await h.fetch_user_profile(sec)
+                item['profile']=pf._to_dict()
+              except Exception as e:
+                item['fetch_errors'].append(f'profile: {type(e).__name__}: {e}')
+              try:
+                async for batch in h.fetch_user_post_videos(sec,0,0,10,100):
+                  try: raw=batch._to_raw()
+                  except Exception:
+                    try: raw=batch._to_dict()
+                    except Exception: raw=None
+                  add_raw(item['posts'],raw)
+                  if len(item['posts'])>=50: break
+              except Exception as e:
+                item['fetch_errors'].append(f'posts: {type(e).__name__}: {e}\n{traceback.format_exc()}')
+            except Exception as e:
+              item['fetch_errors'].append(f'handler: {type(e).__name__}: {e}')
+            return item
+
+          async def main():
+            resolved=await resolve_all()
+            for item in resolved:
+              item=await enrich(item)
+              # Strip cookie secret-ish runtime state from output.
+              item.pop('cookie',None)
+              # Create compact stats for quick inspection.
+              rows=[]
+              for p in item.get('posts',[]):
+                s=p.get('statistics') or {}; a=p.get('author') or {}; v=p.get('video') or {}
+                rows.append({
+                  'aweme_id':p.get('aweme_id'),'desc':p.get('desc'),'create_time':p.get('create_time'),
+                  'duration_ms':p.get('duration') or v.get('duration'), 'is_top':p.get('is_top'),
+                  'digg':s.get('digg_count',0),'comment':s.get('comment_count',0),'collect':s.get('collect_count',0),'share':s.get('share_count',0),
+                  'nickname':a.get('nickname'),'sec_uid':a.get('sec_uid'),
+                  'play_url': ((v.get('play_addr') or {}).get('url_list') or [None])[-1],
+                  'cover_url': ((v.get('cover') or {}).get('url_list') or [None])[0],
+                })
+              item['post_summary']=rows
+              print('\n===',item['key'],'===')
+              print('final',item.get('final_url'))
+              print('sec',item.get('sec_user_id'))
+              print('profile',json.dumps(item.get('profile',{}),ensure_ascii=False)[:3000])
+              print('posts',len(rows),'errors',item.get('resolve_errors'),item.get('fetch_errors'))
+              for r in sorted(rows,key=lambda x:x.get('digg') or 0,reverse=True)[:12]: print(r)
+              out['targets'].append(item)
+            Path('three_accounts.json').write_text(json.dumps(out,ensure_ascii=False,indent=2,default=str),encoding='utf-8')
+          asyncio.run(main())
+          PY
+      - name: Upload data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: douyin-three-accounts
+          path: three_accounts.json
+          if-no-files-found: warn
