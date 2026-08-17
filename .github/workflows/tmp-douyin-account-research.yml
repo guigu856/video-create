@@ -1,0 +1,171 @@
+name: tmp-douyin-account-research
+
+on:
+  push:
+    branches:
+      - tmp/douyin-account-research-20260817
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install collector dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright httpx
+          python -m playwright install --with-deps chromium
+      - name: Collect Douyin profile and posts
+        env:
+          DOUYIN_SHARE_URL: https://v.douyin.com/a4a1GHkZop4/
+        run: |
+          python - <<'PY'
+          import asyncio
+          import json
+          import os
+          import re
+          from pathlib import Path
+          import httpx
+          from playwright.async_api import async_playwright
+
+          SHARE_URL = os.environ['DOUYIN_SHARE_URL']
+          OUT = Path('douyin_result.json')
+          SHOT = Path('douyin_page.png')
+          UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+
+          result = {
+              'share_url': SHARE_URL,
+              'http_resolve': {},
+              'final_url': None,
+              'sec_user_id': None,
+              'profile': None,
+              'posts': [],
+              'captured_endpoints': [],
+              'errors': [],
+          }
+
+          async def http_resolve():
+              try:
+                  async with httpx.AsyncClient(headers={'User-Agent': UA}, follow_redirects=True, timeout=30) as client:
+                      r = await client.get(SHARE_URL)
+                      result['http_resolve'] = {
+                          'status_code': r.status_code,
+                          'final_url': str(r.url),
+                          'history': [
+                              {'status_code': h.status_code, 'url': str(h.url), 'location': h.headers.get('location')}
+                              for h in r.history
+                          ],
+                      }
+                      return str(r.url)
+              except Exception as e:
+                  result['errors'].append(f'http_resolve: {type(e).__name__}: {e}')
+                  return None
+
+          async def main():
+              resolved = await http_resolve()
+              async with async_playwright() as p:
+                  browser = await p.chromium.launch(
+                      headless=True,
+                      args=['--disable-blink-features=AutomationControlled', '--no-sandbox'],
+                  )
+                  context = await browser.new_context(
+                      user_agent=UA,
+                      viewport={'width': 1440, 'height': 1000},
+                      locale='zh-CN',
+                  )
+                  page = await context.new_page()
+
+                  seen_urls = set()
+
+                  async def capture(resp):
+                      url = resp.url
+                      if 'douyin.com' not in url:
+                          return
+                      if '/aweme/' in url or '/user/' in url:
+                          if url not in seen_urls:
+                              seen_urls.add(url)
+                              result['captured_endpoints'].append(url[:500])
+                      if '/aweme/v1/web/user/profile/other/' in url:
+                          try:
+                              payload = await resp.json()
+                              user = payload.get('user') or payload.get('user_info') or payload.get('user_detail')
+                              if user:
+                                  result['profile'] = user
+                          except Exception as e:
+                              result['errors'].append(f'profile_response: {type(e).__name__}: {e}')
+                      elif '/aweme/v1/web/aweme/post/' in url:
+                          try:
+                              payload = await resp.json()
+                              for item in payload.get('aweme_list') or []:
+                                  aid = str(item.get('aweme_id') or '')
+                                  if aid and not any(str(x.get('aweme_id')) == aid for x in result['posts']):
+                                      result['posts'].append(item)
+                          except Exception as e:
+                              result['errors'].append(f'post_response: {type(e).__name__}: {e}')
+
+                  page.on('response', capture)
+                  target = resolved or SHARE_URL
+                  try:
+                      await page.goto(target, wait_until='domcontentloaded', timeout=60000)
+                  except Exception as e:
+                      result['errors'].append(f'page.goto: {type(e).__name__}: {e}')
+                  await page.wait_for_timeout(8000)
+                  result['final_url'] = page.url
+
+                  m = re.search(r'/user/([^/?#]+)', page.url)
+                  if m:
+                      result['sec_user_id'] = m.group(1)
+
+                  # Trigger lazy-loaded profile posts/pagination through Douyin itself.
+                  for _ in range(14):
+                      await page.mouse.wheel(0, 5000)
+                      await page.wait_for_timeout(1800)
+
+                  try:
+                      await page.screenshot(path=str(SHOT), full_page=False)
+                  except Exception as e:
+                      result['errors'].append(f'screenshot: {type(e).__name__}: {e}')
+
+                  # Extract embedded state as a fallback when API responses are not emitted.
+                  try:
+                      html = await page.content()
+                      for key in ('RENDER_DATA', '_ROUTER_DATA'):
+                          match = re.search(rf'<script[^>]+id=["\']{key}["\'][^>]*>(.*?)</script>', html, re.S)
+                          if match:
+                              result[f'embedded_{key}'] = match.group(1)[:200000]
+                  except Exception as e:
+                      result['errors'].append(f'embedded_state: {type(e).__name__}: {e}')
+
+                  await browser.close()
+
+              OUT.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+              print('=== DOUYIN RESULT SUMMARY ===')
+              print(json.dumps({
+                  'share_url': result['share_url'],
+                  'http_resolve': result['http_resolve'],
+                  'final_url': result['final_url'],
+                  'sec_user_id': result['sec_user_id'],
+                  'profile_found': bool(result['profile']),
+                  'posts_count': len(result['posts']),
+                  'captured_endpoints_count': len(result['captured_endpoints']),
+                  'errors': result['errors'],
+              }, ensure_ascii=False, indent=2))
+
+          asyncio.run(main())
+          PY
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: douyin-account-research
+          path: |
+            douyin_result.json
+            douyin_page.png
+          if-no-files-found: warn
