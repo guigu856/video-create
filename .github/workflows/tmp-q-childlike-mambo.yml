@@ -1,0 +1,31 @@
+name: tmp-q-childlike-mambo
+on:
+  push:
+    branches: [tmp/q-childlike-mambo-20260818]
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish run id
+        run: |
+          mkdir -p output/q-childlike-mambo
+          echo "$GITHUB_RUN_ID" > output/q-childlike-mambo/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/q-childlike-mambo/run_id.txt
+          git commit -m 'chore: expose q childlike run id [skip ci]' || true
+          git push || true
+      - name: Download auditions
+        run: |
+          mkdir -p output/q-childlike-mambo
+          curl -fL 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/1e623345df6c4c4eb93784816fd8d61c/id=350f0a3c-5be2-4ba7-bd88-2ad93d745386.wav' -o 'output/q-childlike-mambo/Q1_幼感可爱.wav'
+          curl -fL 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/084760b4922a44599575c770070ec2d7/id=ad660c31-9fb8-43d4-8da7-f57fa8b40e5b.wav' -o 'output/q-childlike-mambo/Q2_轻快小孩感.wav'
+          curl -fL 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/1156e00bc07f47cd94facef758b51f25/id=6047b99d-1284-4f89-86b0-d8f6b57aca5d.wav' -o 'output/q-childlike-mambo/Q3_软萌但不嗲.wav'
+          curl -fL 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/06b68c4dbb544935b9af984e80efa4fb/id=220c88ea-2cc3-4a8a-89ad-bc2eff99a6ed.wav' -o 'output/q-childlike-mambo/Q4_自然幼感.wav'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: q-childlike-mambo-auditions
+          path: output/q-childlike-mambo/
