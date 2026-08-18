@@ -26,7 +26,7 @@ jobs:
           git commit -m 'chore: CPU2 install status [skip cpu2]' || true
           git push || true
           exit $RC
-      - name: Generate clone without TorchCodec
+      - name: Generate stronger answer clones
         continue-on-error: true
         run: |
           python - <<'PY'
@@ -42,16 +42,17 @@ jobs:
 
             import numpy as np
             import soundfile as sf
-            # libsndfile can decode this 16kHz reference MP3 directly; save PCM WAV.
             ref_data, ref_sr = sf.read('reference.mp3', dtype='float32', always_2d=True)
-            if ref_sr != 16000:
-                raise RuntimeError(f'unexpected reference sample rate: {ref_sr}')
             if ref_data.shape[1] > 1:
                 ref_data = ref_data.mean(axis=1, keepdims=True)
-            sf.write('reference.wav', ref_data, ref_sr, subtype='PCM_16')
+            total = len(ref_data) / ref_sr
+            def crop_tail(sec, out):
+                start = max(0, int((total-sec)*ref_sr))
+                sf.write(out, ref_data[start:], ref_sr, subtype='PCM_16')
+            crop_tail(2.8, 'answer_ref_A.wav')
+            crop_tail(2.2, 'answer_ref_B.wav')
 
-            import torch
-            import torchaudio
+            import torch, torchaudio
             def soundfile_load(path, *args, **kwargs):
                 data, sr = sf.read(str(path), dtype='float32', always_2d=True)
                 return torch.from_numpy(np.asarray(data).T.copy()), sr
@@ -65,19 +66,33 @@ jobs:
                 optimize=False,
                 device='cpu'
             )
-            status.write_text('GENERATING',encoding='utf-8')
-            wav=model.generate(
-                text='把时间排得越满，效率就越高，对吗？',
-                prompt_wav_path='reference.wav',
-                prompt_text='只要选择足够多，一直向后挑选，总能找到最好的那一个，对吗？当然不对了。',
-                cfg_value=2.0,
+            target='当然不对。你有没有发现一个很奇怪的事？有时候一天只安排三四件事，反而全做完了。'
+            status.write_text('GENERATING_A',encoding='utf-8')
+            wavA=model.generate(
+                text=target,
+                prompt_wav_path='answer_ref_A.wav',
+                prompt_text='对吗？当然不对了。',
+                cfg_value=2.2,
                 inference_timesteps=4,
                 normalize=False,
                 denoise=False,
                 retry_badcase=False,
             )
-            sf.write('output/voxcpm-cpu2/ggbond_question_clone.wav',wav,model.tts_model.sample_rate)
-            status.write_text('SUCCESS',encoding='utf-8')
+            sf.write('output/voxcpm-cpu2/answer_A_强势解释.wav',wavA,model.tts_model.sample_rate)
+
+            status.write_text('GENERATING_B',encoding='utf-8')
+            wavB=model.generate(
+                text='当然不对。真正的问题，是你把系统推得太接近满负荷了。',
+                prompt_wav_path='answer_ref_B.wav',
+                prompt_text='当然不对了。',
+                cfg_value=2.4,
+                inference_timesteps=4,
+                normalize=False,
+                denoise=False,
+                retry_badcase=False,
+            )
+            sf.write('output/voxcpm-cpu2/answer_B_更短促强势.wav',wavB,model.tts_model.sample_rate)
+            status.write_text('SUCCESS_ANSWER',encoding='utf-8')
           except Exception:
             status.write_text('FAILED\n'+traceback.format_exc(),encoding='utf-8')
           PY
@@ -88,5 +103,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add output/voxcpm-cpu2
-          git commit -m 'chore: CPU2 VoxCPM result [skip cpu2]' || true
+          git commit -m 'chore: stronger VoxCPM answer auditions [skip cpu2]' || true
           git push || true
