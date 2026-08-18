@@ -26,24 +26,55 @@ jobs:
           git commit -m 'chore: CPU2 install status [skip cpu2]' || true
           git push || true
           exit $RC
-      - name: Generate clone
+      - name: Generate clone without TorchCodec
         continue-on-error: true
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re,base64,traceback
+          import re, base64, traceback, subprocess
           status=Path('output/voxcpm-cpu2/status.txt')
           try:
+            # Reuse the already-embedded GGBond reference clip from the debug workflow.
             src=Path('.github/workflows/tmp-voxcpm-debug.yml').read_text(encoding='utf-8')
             m=re.search(r"b64='''([^']+)'''",src,re.S)
-            if not m: raise RuntimeError('reference base64 not found')
+            if not m:
+                raise RuntimeError('reference base64 not found')
             Path('reference.mp3').write_bytes(base64.b64decode(m.group(1)))
+            subprocess.run([
+                'ffmpeg','-y','-loglevel','error','-i','reference.mp3',
+                '-ar','16000','-ac','1','-c:a','pcm_s16le','reference.wav'
+            ], check=True)
+
+            # torchaudio 2.13 on the runner tries TorchCodec even for local audio.
+            # VoxCPM only needs torchaudio.load() here, so route it through soundfile.
+            import numpy as np
             import soundfile as sf
+            import torch
+            import torchaudio
+            def soundfile_load(path, *args, **kwargs):
+                data, sr = sf.read(str(path), dtype='float32', always_2d=True)
+                return torch.from_numpy(np.asarray(data).T.copy()), sr
+            torchaudio.load = soundfile_load
+
             from voxcpm import VoxCPM
             status.write_text('LOADING_MODEL',encoding='utf-8')
-            model=VoxCPM.from_pretrained('openbmb/VoxCPM-0.5B',load_denoiser=False,optimize=False,device='cpu')
+            model=VoxCPM.from_pretrained(
+                'openbmb/VoxCPM-0.5B',
+                load_denoiser=False,
+                optimize=False,
+                device='cpu'
+            )
             status.write_text('GENERATING',encoding='utf-8')
-            wav=model.generate(text='把时间排得越满，效率就越高，对吗？',prompt_wav_path='reference.mp3',prompt_text='只要选择足够多，一直向后挑选',cfg_value=2.0,inference_timesteps=4,normalize=False,denoise=False,retry_badcase=False)
+            wav=model.generate(
+                text='把时间排得越满，效率就越高，对吗？',
+                prompt_wav_path='reference.wav',
+                prompt_text='只要选择足够多，一直向后挑选，总能找到最好的那一个，对吗？当然不对了。',
+                cfg_value=2.0,
+                inference_timesteps=4,
+                normalize=False,
+                denoise=False,
+                retry_badcase=False,
+            )
             sf.write('output/voxcpm-cpu2/ggbond_question_clone.wav',wav,model.tts_model.sample_rate)
             status.write_text('SUCCESS',encoding='utf-8')
           except Exception:
