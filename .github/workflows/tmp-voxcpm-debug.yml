@@ -1,0 +1,50 @@
+name: tmp-voxcpm-debug
+on:
+  push:
+    branches: [tmp/voxcpm-ggbond-audition-20260818]
+permissions:
+  contents: write
+jobs:
+  debug:
+    if: ${{ !contains(github.event.head_commit.message, '[skip voxcpm]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install client
+        continue-on-error: true
+        run: pip install -U gradio_client
+      - name: Run VoxCPM
+        continue-on-error: true
+        run: |
+          mkdir -p output/voxcpm-debug refs
+          python - <<'PY'
+          import base64, shutil, traceback
+          from pathlib import Path
+          status=Path('output/voxcpm-debug/status.txt')
+          b64='''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'''
+          try:
+              from gradio_client import Client, handle_file
+              ref=Path('refs/ggbond.mp3'); ref.write_bytes(base64.b64decode(b64))
+              client=Client('OpenBMB/VoxCPM-Demo', verbose=False)
+              out=client.predict('当然不对。真正的问题，是你把系统推得太接近满负荷了。','',handle_file(str(ref)),False,'',2.2,False,True,12,api_name='/generate')
+              src=out[0] if isinstance(out,(tuple,list)) else out
+              src=getattr(src,'path',src)
+              shutil.copy2(str(src),'output/voxcpm-debug/clone.wav')
+              status.write_text('SUCCESS\n'+repr(out),encoding='utf-8')
+          except Exception:
+              status.write_text('FAILED\n'+traceback.format_exc(),encoding='utf-8')
+          PY
+      - name: Commit debug result
+        if: always()
+        run: |
+          mkdir -p output/voxcpm-debug
+          test -f output/voxcpm-debug/status.txt || echo 'FAILED BEFORE PYTHON' > output/voxcpm-debug/status.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/voxcpm-debug
+          git commit -m 'chore: VoxCPM debug result [skip voxcpm]' || true
+          git push || true
