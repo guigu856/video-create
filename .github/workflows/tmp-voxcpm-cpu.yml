@@ -1,0 +1,56 @@
+name: tmp-voxcpm-cpu
+on:
+  push:
+    branches: [tmp/voxcpm-ggbond-audition-20260818]
+permissions:
+  contents: write
+jobs:
+  clone:
+    if: ${{ !contains(github.event.head_commit.message, '[skip cpu-voxcpm]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install VoxCPM
+        run: pip install -U voxcpm soundfile
+      - name: Clone reference voice locally
+        continue-on-error: true
+        run: |
+          mkdir -p output/voxcpm-cpu refs
+          python - <<'PY'
+          from pathlib import Path
+          import re,base64,traceback
+          status=Path('output/voxcpm-cpu/status.txt')
+          try:
+            src=Path('.github/workflows/tmp-voxcpm-debug.yml').read_text(encoding='utf-8')
+            m=re.search(r"b64='''([^']+)'''",src,re.S)
+            if not m: raise RuntimeError('reference base64 not found')
+            ref=Path('refs/ggbond.mp3'); ref.write_bytes(base64.b64decode(m.group(1)))
+            import soundfile as sf
+            from voxcpm import VoxCPM
+            model=VoxCPM.from_pretrained('openbmb/VoxCPM-0.5B',load_denoiser=False,optimize=False,device='cpu')
+            wav=model.generate(
+              text='把时间排得越满，效率就越高，对吗？',
+              prompt_wav_path=str(ref),
+              prompt_text='只要选择足够多，一直向后挑选',
+              cfg_value=2.0,
+              inference_timesteps=4,
+              normalize=False,
+              denoise=False,
+              retry_badcase=False,
+            )
+            sf.write('output/voxcpm-cpu/ggbond_question_clone.wav',wav,model.tts_model.sample_rate)
+            status.write_text('SUCCESS',encoding='utf-8')
+          except Exception:
+            status.write_text('FAILED\n'+traceback.format_exc(),encoding='utf-8')
+          PY
+      - name: Commit result
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/voxcpm-cpu
+          git commit -m 'chore: add CPU VoxCPM audition [skip cpu-voxcpm]' || true
+          git push || true
