@@ -1,0 +1,52 @@
+name: tmp-douyin-hq-only
+on:
+  push:
+    branches: [tmp/douyin-hq-only-20260819]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish run id
+        run: |
+          mkdir -p output/douyin-hq
+          echo "$GITHUB_RUN_ID" > output/douyin-hq/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/douyin-hq/run_id.txt
+          git commit -m 'chore: expose douyin hq run id [skip ci]' || true
+          git push || true
+      - name: Resolve and download main H264 URL
+        run: |
+          python - <<'PY'
+          import json, urllib.parse, urllib.request
+          from pathlib import Path
+          share='https://v.douyin.com/4GgQdUocaRI/'
+          ua='Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1'
+          out=Path('output/douyin-hq'); out.mkdir(parents=True,exist_ok=True)
+          api='https://api.bugpk.com/api/douyin?url='+urllib.parse.quote(share,safe='')
+          req=urllib.request.Request(api,headers={'User-Agent':ua,'Accept':'application/json,*/*','Referer':'https://www.douyin.com/'})
+          with urllib.request.urlopen(req,timeout=30) as r: data=json.load(r)
+          (out/'bugpk.json').write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
+          u=data['data']['url']
+          print('video url',u)
+          req=urllib.request.Request(u,headers={'User-Agent':ua,'Referer':'https://www.douyin.com/','Accept':'*/*'})
+          dest=out/'梦马思考_拉普拉斯变换_HQ.mp4'
+          with urllib.request.urlopen(req,timeout=120) as r, open(dest,'wb') as f:
+            while True:
+              b=r.read(1024*1024)
+              if not b: break
+              f.write(b)
+          print('downloaded',dest.stat().st_size)
+          PY
+          ffprobe -hide_banner output/douyin-hq/梦马思考_拉普拉斯变换_HQ.mp4 2>&1 | tee output/douyin-hq/ffprobe.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: douyin-hq-reference
+          path: output/douyin-hq/
+          retention-days: 3
