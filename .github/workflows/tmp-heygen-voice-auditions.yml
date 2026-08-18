@@ -1,0 +1,37 @@
+name: tmp-heygen-voice-auditions
+on:
+  push:
+    branches: [tmp/heygen-voice-auditions-20260818]
+permissions:
+  contents: write
+jobs:
+  package:
+    if: ${{ !contains(github.event.head_commit.message, '[skip voice-pack]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download auditions
+        run: |
+          mkdir -p output/heygen-voice-auditions
+          curl -L --fail 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/1776ddbd05374fa480e92f0297bbc67e/id=a6632d16-ab35-4896-bef8-3565bed52b3e.wav' -o 'output/heygen-voice-auditions/Q1_自然轻声.wav'
+          curl -L --fail 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/7682f3cff71a47abb2d6ae7ab3b339fd/id=a305da8b-59fa-4bf1-b2d5-ad53956c4e2a.wav' -o 'output/heygen-voice-auditions/Q2_轻快自然.wav'
+          curl -L --fail 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/55f8c0f546884f9cbdefa113f5e7b682/id=8671afad-46fe-4fd0-a373-4874b90abbce.wav' -o 'output/heygen-voice-auditions/Q3_知性自然.wav'
+          curl -L --fail 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/45d1bc0c65e9426b9da4327d52e1f346/id=13e32274-4df0-43f6-969e-2c0b8581b8d1.wav' -o 'output/heygen-voice-auditions/Q4_偏低克制.wav'
+          curl -L --fail 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/080f8e5cb3ae424989242b0efe5205e6/id=3c92a43d-641f-4090-b667-ebf942e11292.wav' -o 'output/heygen-voice-auditions/E1_清冷强势.wav'
+          curl -L --fail 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/88fff92e30d840f6884929bda4368bd6/id=1a83e4ef-2356-461f-bc8c-f768d30c34e3.wav' -o 'output/heygen-voice-auditions/E2_低沉强势.wav'
+          curl -L --fail 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/31cb5883a81d486e9f2ffea8464dabc4/id=e4d734c0-7d06-413d-872c-98b255b9ab21.wav' -o 'output/heygen-voice-auditions/E3_知性强势.wav'
+          curl -L --fail 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/dadd7050adc04e5e91d6f381b2605484/id=9d5b4254-e2eb-480a-bbe2-61733c34e62f.wav' -o 'output/heygen-voice-auditions/E4_成熟强势.wav'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heygen-voice-auditions
+          path: output/heygen-voice-auditions/*.wav
+          retention-days: 7
+      - name: Record run id
+        run: |
+          mkdir -p output/heygen-voice-auditions-meta
+          echo '${{ github.run_id }}' > output/heygen-voice-auditions-meta/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/heygen-voice-auditions-meta/run_id.txt
+          git commit -m 'chore: record HeyGen audition run [skip voice-pack]' || true
+          git push || true
