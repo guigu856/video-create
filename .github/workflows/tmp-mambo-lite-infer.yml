@@ -1,0 +1,120 @@
+name: tmp-mambo-lite-infer
+on:
+  push:
+    branches: [tmp/mambo-lite-infer-20260819]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  infer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish run id
+        run: |
+          mkdir -p output/mambo-lite
+          echo "$GITHUB_RUN_ID" > output/mambo-lite/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/mambo-lite/run_id.txt
+          git commit -m 'chore: expose mambo lite run id [skip ci]' || true
+          git push || true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: mambo-lite-${{ runner.os }}-py310-v3
+      - name: Checkout GPT-SoVITS
+        run: git clone --depth 1 https://github.com/RVC-Boss/GPT-SoVITS.git /tmp/GPT-SoVITS
+      - name: Install inference-only dependencies
+        run: |
+          python -m pip install -q --upgrade pip wheel setuptools
+          python -m pip install -q torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -q 'numpy<2' scipy 'librosa==0.10.2' soundfile ffmpeg-python tqdm 'pytorch-lightning>=2.4' 'torchmetrics<=1.5' cn2an pypinyin jieba_fast jieba sentencepiece 'transformers>=4.51,<5' 'peft<0.18' chardet PyYAML psutil split-lang 'fast_langdetect>=0.3.1' wordsegment rotary_embedding_torch opencc g2p_en x_transformers 'pydantic<=2.10.6' huggingface_hub requests
+      - name: Fetch Chinese pretrained assets
+        working-directory: /tmp/GPT-SoVITS
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          base='GPT_SoVITS/pretrained_models'
+          snapshot_download(repo_id='lj1995/GPT-SoVITS', allow_patterns=['chinese-roberta-wwm-ext-large/**','chinese-hubert-base/**'], local_dir=base)
+          PY
+          python - <<'PY'
+          import urllib.request, zipfile, os
+          url='https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/G2PWModel.zip'
+          out='/tmp/G2PWModel.zip'
+          urllib.request.urlretrieve(url,out)
+          with zipfile.ZipFile(out) as z: z.extractall('GPT_SoVITS/text')
+          print('g2pw ready', os.path.isdir('GPT_SoVITS/text/G2PWModel'))
+          PY
+      - name: Fetch real Mambo finetune weights
+        run: |
+          python - <<'PY'
+          import json, urllib.request, os, zipfile, shutil
+          os.makedirs('/tmp/mambo',exist_ok=True)
+          req=urllib.request.Request('https://api.github.com/repos/Tsukimisaka/MamboTTS/releases/latest',headers={'User-Agent':'mambo-lite'})
+          data=json.load(urllib.request.urlopen(req,timeout=30))
+          assets=data.get('assets',[])
+          full=[a for a in assets if 'full' in a.get('name','').lower() and a.get('name','').lower().endswith('.zip')]
+          if not full: raise SystemExit('no full Mambo release')
+          a=full[0]; archive='/tmp/'+a['name']
+          req=urllib.request.Request(a['browser_download_url'],headers={'User-Agent':'mambo-lite'})
+          with urllib.request.urlopen(req,timeout=180) as r, open(archive,'wb') as f:
+            shutil.copyfileobj(r,f)
+          wanted={'manbo_e8_s168.pth','manbo-e10.ckpt','refer.wav'}
+          with zipfile.ZipFile(archive) as z:
+            for i in z.infolist():
+              b=os.path.basename(i.filename.replace('\\','/'))
+              if b in wanted:
+                with z.open(i) as src, open('/tmp/mambo/'+b,'wb') as dst: shutil.copyfileobj(src,dst)
+          for b in wanted:
+            p='/tmp/mambo/'+b
+            print(b,os.path.getsize(p))
+          PY
+      - name: Synthesize with real Mambo weights
+        working-directory: /tmp/GPT-SoVITS
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/output/mambo-lite"
+          export version=v2
+          python api.py -a 127.0.0.1 -p 9880 -d cpu -fp \
+            -s /tmp/mambo/manbo_e8_s168.pth \
+            -g /tmp/mambo/manbo-e10.ckpt \
+            -dr /tmp/mambo/refer.wav \
+            -dt '大家好，欢迎来到我的频道，今天给大家分享一个有趣的内容' \
+            -dl zh \
+            -hb /tmp/GPT-SoVITS/GPT_SoVITS/pretrained_models/chinese-hubert-base \
+            -b /tmp/GPT-SoVITS/GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large \
+            > /tmp/mambo-api.log 2>&1 &
+          PID=$!
+          for i in $(seq 1 90); do
+            if curl -fsS 'http://127.0.0.1:9880/control?command=noop' >/dev/null 2>&1; then break; fi
+            if ! kill -0 "$PID" 2>/dev/null; then cat /tmp/mambo-api.log; exit 1; fi
+            sleep 2
+          done
+          python - <<'PY'
+          import requests, os, wave
+          text='当然不对。数学里有一个很经典的随机过程，叫做马尔可夫链。马尔可夫链由一组状态，以及这些状态之间的转移概率构成。'
+          r=requests.get('http://127.0.0.1:9880/',params={'text':text,'text_language':'zh','cut_punc':'，。？！'},timeout=240)
+          print('status',r.status_code,'bytes',len(r.content))
+          if r.status_code!=200:
+            print(r.text[:1000]); raise SystemExit(1)
+          out=os.path.join(os.environ['GITHUB_WORKSPACE'],'output/mambo-lite/曼波_真实权重_马尔可夫链测试.wav')
+          open(out,'wb').write(r.content)
+          with wave.open(out,'rb') as w:
+            dur=w.getnframes()/w.getframerate()
+            print('wav',w.getframerate(),w.getnchannels(),dur)
+          PY
+          cp /tmp/mambo-api.log "$GITHUB_WORKSPACE/output/mambo-lite/api.log"
+          kill "$PID" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mambo-real-weight-audition
+          path: output/mambo-lite/
+          retention-days: 3
