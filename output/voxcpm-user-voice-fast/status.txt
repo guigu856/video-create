@@ -1,0 +1,12 @@
+FAILED
+Traceback (most recent call last):
+  File "<stdin>", line 17, in <module>
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/soundfile.py", line 313, in read
+    with SoundFile(file, 'r', samplerate, channels,
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/soundfile.py", line 708, in __init__
+    self._file = self._open(file, mode_int, closefd)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/soundfile.py", line 1296, in _open
+    raise LibsndfileError(err, prefix=f"Error opening {self.name!r}: ")
+soundfile.LibsndfileError: Error opening 'tmp/voice_refs/question.mp3': File does not exist or is not a regular file (possibly a pipe?).
