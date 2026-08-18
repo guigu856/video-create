@@ -1,0 +1,157 @@
+name: tmp-mambo-infer
+on:
+  push:
+    branches: [tmp/mambo-infer-20260819]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  infer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish run id
+        run: |
+          mkdir -p output/mambo-infer
+          echo "$GITHUB_RUN_ID" > output/mambo-infer/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/mambo-infer/run_id.txt
+          git commit -m 'chore: expose mambo infer run id [skip ci]' || true
+          git push || true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: System dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg libsox-dev libsndfile1-dev build-essential
+
+      - name: Checkout GPT-SoVITS
+        run: |
+          git clone --depth 1 https://github.com/RVC-Boss/GPT-SoVITS.git /tmp/GPT-SoVITS
+
+      - name: Install GPT-SoVITS Python dependencies
+        working-directory: /tmp/GPT-SoVITS
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install torch==2.2.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+          cp requirements.txt /tmp/requirements-cpu.txt
+          sed -i '/^torch$/d;/^torchaudio$/d;/^onnxruntime-gpu/d' /tmp/requirements-cpu.txt
+          echo 'onnxruntime' >> /tmp/requirements-cpu.txt
+          python -m pip install -r /tmp/requirements-cpu.txt
+
+      - name: Download Chinese inference dependencies
+        working-directory: /tmp/GPT-SoVITS
+        run: |
+          python -m pip install 'huggingface_hub>=0.30,<1'
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          snapshot_download(
+              repo_id='lj1995/GPT-SoVITS',
+              allow_patterns=['chinese-roberta-wwm-ext-large/**','chinese-hubert-base/**'],
+              local_dir='GPT_SoVITS/pretrained_models',
+          )
+          PY
+          wget -q --show-progress -O /tmp/G2PWModel.zip 'https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained/resolve/main/G2PWModel.zip'
+          unzip -q -o /tmp/G2PWModel.zip -d GPT_SoVITS/text
+          find GPT_SoVITS/pretrained_models -maxdepth 2 -type f | head -20
+
+      - name: Fetch latest MamboTTS models
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/mambo-models
+          python - <<'PY'
+          import json, urllib.request, os, zipfile, shutil
+          api='https://api.github.com/repos/Tsukimisaka/MamboTTS/releases/latest'
+          req=urllib.request.Request(api, headers={'User-Agent':'video-create-mambo-infer'})
+          with urllib.request.urlopen(req, timeout=60) as r:
+              data=json.load(r)
+          assets=data.get('assets',[])
+          full=[a for a in assets if 'full' in a.get('name','').lower() and a.get('name','').lower().endswith('.zip')]
+          if not full:
+              raise SystemExit('No full zip release found')
+          a=full[0]
+          archive='/tmp/'+a['name']
+          req=urllib.request.Request(a['browser_download_url'], headers={'User-Agent':'video-create-mambo-infer'})
+          with urllib.request.urlopen(req, timeout=300) as r, open(archive,'wb') as f:
+              while True:
+                  b=r.read(1024*1024)
+                  if not b: break
+                  f.write(b)
+          with zipfile.ZipFile(archive) as z:
+              for info in z.infolist():
+                  p=info.filename.replace('\\\\','/')
+                  base=os.path.basename(p)
+                  if base in {'manbo_e8_s168.pth','manbo-e10.ckpt','refer.wav'}:
+                      out='/tmp/mambo-models/'+base
+                      with z.open(info) as src, open(out,'wb') as dst:
+                          shutil.copyfileobj(src,dst)
+                      print(out, os.path.getsize(out))
+          required=['manbo_e8_s168.pth','manbo-e10.ckpt','refer.wav']
+          for x in required:
+              p='/tmp/mambo-models/'+x
+              if not os.path.exists(p): raise SystemExit('missing '+p)
+          PY
+
+      - name: Configure CPU inference
+        working-directory: /tmp/GPT-SoVITS
+        run: |
+          cat > /tmp/mambo.yaml <<'YAML'
+          custom:
+            bert_base_path: /tmp/GPT-SoVITS/GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large
+            cnhuhbert_base_path: /tmp/GPT-SoVITS/GPT_SoVITS/pretrained_models/chinese-hubert-base
+            device: cpu
+            is_half: false
+            t2s_weights_path: /tmp/mambo-models/manbo-e10.ckpt
+            version: v2
+            vits_weights_path: /tmp/mambo-models/manbo_e8_s168.pth
+          YAML
+          cat /tmp/mambo.yaml
+
+      - name: Start API and synthesize Mambo audition
+        working-directory: /tmp/GPT-SoVITS
+        run: |
+          set -euxo pipefail
+          python api_v2.py -a 127.0.0.1 -p 9880 -c /tmp/mambo.yaml > /tmp/mambo-api.log 2>&1 &
+          API_PID=$!
+          for i in $(seq 1 120); do
+            if curl -s -o /dev/null -w '%{http_code}' 'http://127.0.0.1:9880/control?command=noop' | grep -Eq '200|400|404|405'; then
+              break
+            fi
+            if ! kill -0 "$API_PID" 2>/dev/null; then
+              echo 'API exited early'; cat /tmp/mambo-api.log; exit 1
+            fi
+            sleep 2
+          done
+          mkdir -p "$GITHUB_WORKSPACE/output/mambo-infer"
+          cat > /tmp/request.json <<'JSON'
+          {
+            "text": "当然不对。数学里有一个很经典的随机过程，叫做马尔可夫链。马尔可夫链由一组状态，以及这些状态之间的转移概率构成。假设一个系统现在处于某个状态。下一步进入另一个状态的概率，可以这样表示。",
+            "text_lang": "zh",
+            "ref_audio_path": "/tmp/mambo-models/refer.wav",
+            "prompt_text": "大家好，欢迎来到我的频道，今天给大家分享一个有趣的内容",
+            "prompt_lang": "zh",
+            "text_split_method": "cut5",
+            "batch_size": 1,
+            "speed_factor": 1.0,
+            "media_type": "wav",
+            "streaming_mode": false
+          }
+          JSON
+          curl --fail-with-body -sS -X POST 'http://127.0.0.1:9880/tts' -H 'Content-Type: application/json' --data-binary @/tmp/request.json -o "$GITHUB_WORKSPACE/output/mambo-infer/曼波_马尔可夫链_正文测试.wav"
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$GITHUB_WORKSPACE/output/mambo-infer/曼波_马尔可夫链_正文测试.wav"
+          cp /tmp/mambo-api.log "$GITHUB_WORKSPACE/output/mambo-infer/api.log"
+          kill "$API_PID" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mambo-markov-audition
+          path: output/mambo-infer/
+          retention-days: 3
