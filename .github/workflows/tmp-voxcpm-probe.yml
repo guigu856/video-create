@@ -1,0 +1,23 @@
+name: tmp-voxcpm-probe
+on:
+  push:
+    branches: [tmp/voxcpm-clone-20260818]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Probe VoxCPM Gradio API
+        run: |
+          pip install -U gradio_client
+          python - <<'PY'
+          from gradio_client import Client
+          c=Client('OpenBMB/VoxCPM-Demo')
+          print(c.view_api(all_endpoints=True, print_info=True))
+          PY
