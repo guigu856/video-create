@@ -65,10 +65,28 @@ jobs:
               status.write_text('LOADING_MODEL', encoding='utf-8')
               model = VoxCPM.from_pretrained('openbmb/VoxCPM-0.5B', load_denoiser=False, optimize=False, device='cpu')
               status.write_text('GENERATING_QUESTION', encoding='utf-8')
-              q = model.generate(text='如果把今天每一分钟都安排好，事情就一定会更顺利，对吗？', reference_wav_path='/tmp/question.wav', cfg_value=2.0, inference_timesteps=4, normalize=False, denoise=False, retry_badcase=False)
+              q = model.generate(
+                  text='如果把今天每一分钟都安排好，事情就一定会更顺利，对吗？',
+                  prompt_wav_path='/tmp/question.wav',
+                  prompt_text='只要把每天的时间安排得越满，一分钟都不浪费，效率就会越高，对吗？',
+                  cfg_value=2.0,
+                  inference_timesteps=4,
+                  normalize=False,
+                  denoise=False,
+                  retry_badcase=False,
+              )
               sf.write('output/voxcpm-user-voice-fast/提问_克隆试听.wav', q, model.tts_model.sample_rate)
               status.write_text('GENERATING_EXPLAIN', encoding='utf-8')
-              e = model.generate(text='当然不对。真正的问题不是你不够努力，而是你的计划没有给意外留下空间。', reference_wav_path='/tmp/explain.wav', cfg_value=2.0, inference_timesteps=4, normalize=False, denoise=False, retry_badcase=False)
+              e = model.generate(
+                  text='当然不对。真正的问题不是你不够努力，而是你的计划没有给意外留下空间。',
+                  prompt_wav_path='/tmp/explain.wav',
+                  prompt_text='当然不对。你有没有发现一个很奇怪的事。有时候一天只安排三四件事，反而全做完了。',
+                  cfg_value=2.0,
+                  inference_timesteps=4,
+                  normalize=False,
+                  denoise=False,
+                  retry_badcase=False,
+              )
               sf.write('output/voxcpm-user-voice-fast/解释_克隆试听.wav', e, model.tts_model.sample_rate)
               status.write_text('SUCCESS', encoding='utf-8')
           except Exception:
