@@ -1,0 +1,21 @@
+name: tmp-q4-light-consistent
+on:
+  push:
+    branches: [tmp/q4-light-consistent-20260818]
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Q4 auditions
+        run: |
+          mkdir -p output/q4-light-consistent
+          curl -fL 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/bb2850ee8c76464d8e3d43f51b963fd1/id=da9155d1-eacb-476e-8630-79dc29b9a2ab.wav' -o 'output/q4-light-consistent/Q4A_轻快一致_1.08x.wav'
+          curl -fL 'https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/bb2850ee8c76464d8e3d43f51b963fd1/id=e8cfa500-aa32-4968-bee4-2db135678d68.wav' -o 'output/q4-light-consistent/Q4B_更轻快一致_1.14x.wav'
+          ls -lh output/q4-light-consistent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: q4-light-consistent-auditions
+          path: output/q4-light-consistent/
