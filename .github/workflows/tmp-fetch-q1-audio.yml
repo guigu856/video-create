@@ -1,0 +1,30 @@
+name: tmp-fetch-q1-audio
+on:
+  push:
+    branches: [tmp/fetch-q1-audio-20260819]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact Q1 audio
+        run: |
+          mkdir -p output/q1
+          python - <<'PY'
+          import urllib.request
+          url='https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/1e623345df6c4c4eb93784816fd8d61c/id=ccf6cc92-2876-4e84-a11e-c62bdfc33671.wav'
+          urllib.request.urlretrieve(url,'output/q1/角色A_Q1_最终.wav')
+          PY
+          echo "$GITHUB_RUN_ID" > output/q1/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/q1/run_id.txt
+          git commit -m 'chore: expose q1 fetch run id [skip ci]' || true
+          git push || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: q1-final-audio
+          path: output/q1/角色A_Q1_最终.wav
+          retention-days: 3
