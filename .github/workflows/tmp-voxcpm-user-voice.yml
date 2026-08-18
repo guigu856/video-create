@@ -1,0 +1,96 @@
+name: tmp-voxcpm-user-voice
+on:
+  push:
+    branches: [tmp/voxcpm-user-voice-20260818]
+permissions:
+  contents: write
+jobs:
+  clone:
+    if: ${{ !contains(github.event.head_commit.message, '[skip clone]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install VoxCPM
+        run: |
+          python -m pip install -U pip
+          pip install -U voxcpm soundfile
+      - name: Generate auditions
+        continue-on-error: true
+        run: |
+          mkdir -p output/voxcpm-user-voice
+          python - <<'PY'
+          from pathlib import Path
+          import traceback
+          status = Path('output/voxcpm-user-voice/status.txt')
+          try:
+              import numpy as np
+              import soundfile as sf
+              import torch
+              import torchaudio
+
+              def sf_load(path, *args, **kwargs):
+                  data, sr = sf.read(str(path), dtype='float32', always_2d=True)
+                  return torch.from_numpy(np.asarray(data).T.copy()), sr
+              torchaudio.load = sf_load
+
+              for src, dst in [
+                  ('tmp/voice_refs/question.mp3', 'tmp/voice_refs/question.wav'),
+                  ('tmp/voice_refs/explain.mp3', 'tmp/voice_refs/explain.wav'),
+              ]:
+                  data, sr = sf.read(src, dtype='float32', always_2d=True)
+                  if data.shape[1] > 1:
+                      data = data.mean(axis=1, keepdims=True)
+                  sf.write(dst, data, sr, subtype='PCM_16')
+
+              from voxcpm import VoxCPM
+              status.write_text('LOADING_VOXCPM2', encoding='utf-8')
+              model = VoxCPM.from_pretrained(
+                  'openbmb/VoxCPM2',
+                  load_denoiser=False,
+                  optimize=False,
+                  device='cpu',
+              )
+
+              status.write_text('GENERATING_QUESTION', encoding='utf-8')
+              q = model.generate(
+                  text='(自然、轻一点，像平时说话一样带一点疑问，不要播音腔)如果把今天每一分钟都安排好，事情就一定会更顺利，对吗？',
+                  reference_wav_path='tmp/voice_refs/question.wav',
+                  cfg_value=2.0,
+                  inference_timesteps=6,
+                  seed=41,
+              )
+              sf.write('output/voxcpm-user-voice/提问_克隆试听.wav', q, model.tts_model.sample_rate)
+
+              status.write_text('GENERATING_EXPLAIN', encoding='utf-8')
+              e = model.generate(
+                  text='(更坚定、更有气势，但仍然像真人自然讲解，不要播音腔)当然不对。真正的问题不是你不够努力，而是你的计划没有给意外留下空间。',
+                  reference_wav_path='tmp/voice_refs/explain.wav',
+                  cfg_value=2.0,
+                  inference_timesteps=6,
+                  seed=42,
+              )
+              sf.write('output/voxcpm-user-voice/解释_克隆试听.wav', e, model.tts_model.sample_rate)
+              status.write_text('SUCCESS_VOXCPM2', encoding='utf-8')
+          except Exception:
+              status.write_text('FAILED\n' + traceback.format_exc(), encoding='utf-8')
+          PY
+      - name: Commit result
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase || true
+          git add output/voxcpm-user-voice
+          git commit -m 'chore: VoxCPM2 user voice result [skip clone]' || true
+          git push || true
+      - name: Upload audition artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxcpm-user-voice-auditions
+          path: output/voxcpm-user-voice/
+          if-no-files-found: warn
