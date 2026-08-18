@@ -1,0 +1,27 @@
+name: tmp-package-answer-auditions
+on:
+  push:
+    branches: [tmp/voxcpm-cpu2-20260818]
+permissions:
+  contents: write
+jobs:
+  package:
+    if: ${{ contains(github.event.head_commit.message, '[package answer]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voxcpm-answer-auditions
+          path: |
+            output/voxcpm-cpu2/answer_A_强势解释.wav
+            output/voxcpm-cpu2/answer_B_更短促强势.wav
+      - name: record run id
+        run: |
+          mkdir -p output/voxcpm-answer-package
+          echo "${{ github.run_id }}" > output/voxcpm-answer-package/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/voxcpm-answer-package/run_id.txt
+          git commit -m 'chore: record answer package run [skip cpu2]' || true
+          git push || true
