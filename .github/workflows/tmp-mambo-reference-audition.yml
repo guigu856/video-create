@@ -1,0 +1,32 @@
+name: tmp-mambo-reference-audition
+on:
+  push:
+    branches: [tmp/mambo-reference-audition-20260818]
+permissions:
+  contents: write
+jobs:
+  fetch-reference:
+    if: ${{ !contains(github.event.head_commit.message, '[skip mambo audition]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish run id
+        run: |
+          mkdir -p output/mambo-reference-audition
+          echo "$GITHUB_RUN_ID" > output/mambo-reference-audition/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/mambo-reference-audition/run_id.txt
+          git commit -m 'chore: expose Mambo audition run id [skip mambo audition]' || true
+          git push || true
+      - name: Fetch Mambo reference
+        run: |
+          mkdir -p output/mambo-reference-audition
+          curl -fL 'https://raw.githubusercontent.com/Tsukimisaka/MamboTTS/main/models/refer.wav' -o output/mambo-reference-audition/曼波讲故事_参考音色.wav
+          file output/mambo-reference-audition/曼波讲故事_参考音色.wav
+          ls -lh output/mambo-reference-audition/曼波讲故事_参考音色.wav
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mambo-reference-audition
+          path: output/mambo-reference-audition/
