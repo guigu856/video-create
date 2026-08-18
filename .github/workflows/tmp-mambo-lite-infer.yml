@@ -118,3 +118,4 @@ jobs:
           name: mambo-real-weight-audition
           path: output/mambo-lite/
           retention-days: 3
+# trigger: 20260819-0205
