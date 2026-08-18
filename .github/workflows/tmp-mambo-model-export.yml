@@ -1,0 +1,83 @@
+name: tmp-mambo-model-export
+on:
+  push:
+    branches: [tmp/mambo-model-export-20260819]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish run id
+        run: |
+          mkdir -p output/mambo-export
+          echo "$GITHUB_RUN_ID" > output/mambo-export/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/mambo-export/run_id.txt
+          git commit -m 'chore: expose mambo export run id [skip ci]' || true
+          git push || true
+      - name: Fetch latest MamboTTS release and extract models
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p output/mambo-export/release output/mambo-export/models
+          python - <<'PY'
+          import json, urllib.request, os, sys
+          api='https://api.github.com/repos/Tsukimisaka/MamboTTS/releases/latest'
+          req=urllib.request.Request(api, headers={'User-Agent':'video-create-mambo-export'})
+          with urllib.request.urlopen(req, timeout=60) as r:
+              data=json.load(r)
+          print('tag=', data.get('tag_name'))
+          assets=data.get('assets',[])
+          for a in assets:
+              print(a.get('name'), a.get('size'), a.get('browser_download_url'))
+          full=[a for a in assets if 'full' in a.get('name','').lower() and a.get('name','').lower().endswith(('.zip','.7z'))]
+          if not full:
+              raise SystemExit('No full release archive found')
+          a=full[0]
+          url=a['browser_download_url']
+          name=a['name']
+          out='/tmp/'+name
+          print('downloading', url, '->', out)
+          req=urllib.request.Request(url, headers={'User-Agent':'video-create-mambo-export'})
+          with urllib.request.urlopen(req, timeout=300) as r, open(out,'wb') as f:
+              while True:
+                  b=r.read(1024*1024)
+                  if not b: break
+                  f.write(b)
+          open('output/mambo-export/release/asset_name.txt','w').write(name+'\n')
+          open('output/mambo-export/release/tag.txt','w').write(str(data.get('tag_name'))+'\n')
+          print('downloaded bytes', os.path.getsize(out))
+          PY
+          ARCHIVE=$(cat output/mambo-export/release/asset_name.txt)
+          if [[ "$ARCHIVE" == *.zip ]]; then
+            python - <<'PY'
+          import zipfile, os, shutil
+          name=open('output/mambo-export/release/asset_name.txt').read().strip()
+          z=zipfile.ZipFile('/tmp/'+name)
+          for info in z.infolist():
+              p=info.filename.replace('\\','/')
+              if '/models/' in '/'+p or p.startswith('models/'):
+                  if info.is_dir(): continue
+                  base=os.path.basename(p)
+                  if not base: continue
+                  out=os.path.join('output/mambo-export/models',base)
+                  with z.open(info) as src, open(out,'wb') as dst:
+                      shutil.copyfileobj(src,dst)
+                  print(out, os.path.getsize(out))
+          PY
+          else
+            sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full
+            7z x "/tmp/$ARCHIVE" -o/tmp/mambo-full >/dev/null
+            find /tmp/mambo-full -type f -path '*/models/*' -exec cp -v {} output/mambo-export/models/ \;
+          fi
+          find output/mambo-export -maxdepth 3 -type f -printf '%p %s bytes\n'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mambo-models-v120
+          path: output/mambo-export/
+          retention-days: 3
