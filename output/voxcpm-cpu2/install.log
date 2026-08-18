@@ -243,7 +243,7 @@ Collecting kaldiio>=2.17.0 (from funasr->voxcpm)
   Downloading kaldiio-2.18.1-py3-none-any.whl.metadata (13 kB)
 Collecting jieba (from funasr->voxcpm)
   Downloading jieba-0.42.1.tar.gz (19.2 MB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 19.2/19.2 MB 193.6 MB/s  0:00:00
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 19.2/19.2 MB 94.3 MB/s  0:00:00
   Installing build dependencies: started
   Installing build dependencies: finished with status 'done'
   Getting requirements to build wheel: started
@@ -361,7 +361,7 @@ Downloading datasets-3.6.0-py3-none-any.whl (491 kB)
 Downloading dill-0.3.8-py3-none-any.whl (116 kB)
 Downloading fsspec-2025.3.0-py3-none-any.whl (193 kB)
 Downloading gradio-6.24.0-py3-none-any.whl (30.7 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 30.7/30.7 MB 296.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 30.7/30.7 MB 143.4 MB/s  0:00:00
 Downloading gradio_client-2.6.0-py3-none-any.whl (61 kB)
 Downloading anyio-4.14.2-py3-none-any.whl (125 kB)
 Downloading fastapi-0.141.1-py3-none-any.whl (131 kB)
@@ -370,27 +370,27 @@ Downloading hf_gradio-0.4.1-py3-none-any.whl (4.5 kB)
 Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
 Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
 Downloading huggingface_hub-1.27.0-py3-none-any.whl (784 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 784.9/784.9 kB 172.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 784.9/784.9 kB 170.4 MB/s  0:00:00
 Downloading click-8.4.2-py3-none-any.whl (119 kB)
 Downloading hf_xet-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.5 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.5/4.5 MB 344.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.5/4.5 MB 134.5 MB/s  0:00:00
 Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
 Downloading markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
 Downloading multiprocess-0.70.16-py311-none-any.whl (143 kB)
 Downloading numpy-2.4.6-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 365.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 139.4 MB/s  0:00:00
 Downloading orjson-3.12.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (131 kB)
 Downloading pandas-3.0.5-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.3/11.3 MB 333.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.3/11.3 MB 147.3 MB/s  0:00:00
 Downloading pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (6.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.9/6.9 MB 325.2 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.9/6.9 MB 142.5 MB/s  0:00:00
 Downloading pydantic-2.13.4-py3-none-any.whl (472 kB)
 Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 280.2 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 168.4 MB/s  0:00:00
 Downloading pydub-0.25.1-py2.py3-none-any.whl (32 kB)
 Downloading python_multipart-0.0.32-py3-none-any.whl (30 kB)
 Downloading pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (806 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 154.9 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 806.6/806.6 kB 200.2 MB/s  0:00:00
 Downloading safehttpx-0.1.7-py3-none-any.whl (9.0 kB)
 Downloading semantic_version-2.10.0-py2.py3-none-any.whl (15 kB)
 Downloading starlette-1.6.0-py3-none-any.whl (75 kB)
@@ -398,9 +398,9 @@ Downloading tomlkit-0.14.0-py3-none-any.whl (39 kB)
 Downloading typer-0.27.1-py3-none-any.whl (122 kB)
 Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
 Downloading soundfile-0.14.0-py2.py3-none-manylinux_2_28_x86_64.whl (1.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 158.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 221.7 MB/s  0:00:00
 Downloading aiohttp-3.14.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.8 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 237.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 258.2 MB/s  0:00:00
 Downloading multidict-6.7.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (246 kB)
 Downloading yarl-1.24.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (111 kB)
 Downloading aiohappyeyeballs-2.7.1-py3-none-any.whl (15 kB)
@@ -409,19 +409,19 @@ Downloading annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
 Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
 Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
 Downloading brotli-1.2.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 101.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 179.2 MB/s  0:00:00
 Downloading cffi-2.1.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (217 kB)
 Downloading filelock-3.32.3-py3-none-any.whl (98 kB)
 Downloading frozenlist-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (231 kB)
 Downloading h11-0.16.0-py3-none-any.whl (37 kB)
 Downloading idna-3.19-py3-none-any.whl (68 kB)
 Downloading modelscope-1.39.1-py3-none-any.whl (6.0 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.0/6.0 MB 188.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.0/6.0 MB 186.6 MB/s  0:00:00
 Downloading modelscope_hub-0.2.0-py3-none-any.whl (156 kB)
 Downloading packaging-26.3-py3-none-any.whl (129 kB)
 Downloading propcache-0.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (58 kB)
 Downloading pyarrow-25.0.1-cp311-cp311-manylinux_2_28_x86_64.whl (50.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 50.1/50.1 MB 340.9 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 50.1/50.1 MB 127.9 MB/s  0:00:00
 Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
 Downloading pytz-2026.3.post1-py2.py3-none-any.whl (508 kB)
 Downloading requests-2.34.2-py3-none-any.whl (73 kB)
@@ -430,63 +430,63 @@ Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
 Downloading certifi-2026.7.22-py3-none-any.whl (136 kB)
 Downloading rich-15.0.0-py3-none-any.whl (310 kB)
 Downloading pygments-2.21.0-py3-none-any.whl (1.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 205.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 247.7 MB/s  0:00:00
 Downloading markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
 Downloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
 Downloading shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
 Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
 Downloading torch-2.13.0-cp311-cp311-manylinux_2_28_x86_64.whl (526.6 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 526.6/526.6 MB 81.4 MB/s  0:00:04
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 526.6/526.6 MB 62.6 MB/s  0:00:04
 Downloading cuda_toolkit-13.0.3.0-py2.py3-none-any.whl (2.5 kB)
 Downloading nvidia_cudnn_cu13-9.20.0.48-py3-none-manylinux_2_27_x86_64.whl (366.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 366.2/366.2 MB 133.6 MB/s  0:00:02
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 366.2/366.2 MB 70.4 MB/s  0:00:03
 Downloading nvidia_cusparselt_cu13-0.8.1-py3-none-manylinux2014_x86_64.whl (170.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 170.1/170.1 MB 267.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 170.1/170.1 MB 121.2 MB/s  0:00:01
 Downloading nvidia_nccl_cu13-2.29.7-py3-none-manylinux_2_18_x86_64.whl (206.0 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 206.0/206.0 MB 220.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 206.0/206.0 MB 89.5 MB/s  0:00:02
 Downloading nvidia_nvshmem_cu13-3.4.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (60.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 60.4/60.4 MB 313.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 60.4/60.4 MB 127.9 MB/s  0:00:00
 Downloading triton-3.7.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (197.7 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 197.7/197.7 MB 103.9 MB/s  0:00:01
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 197.7/197.7 MB 60.3 MB/s  0:00:03
 Downloading cuda_bindings-13.3.1-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (6.7 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.7/6.7 MB 207.9 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.7/6.7 MB 140.1 MB/s  0:00:00
 Downloading nvidia_cublas-13.1.1.3-py3-none-manylinux_2_27_x86_64.whl (423.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 423.1/423.1 MB 94.4 MB/s  0:00:03
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 423.1/423.1 MB 48.0 MB/s  0:00:05
 Downloading nvidia_cuda_cupti-13.0.85-py3-none-manylinux_2_25_x86_64.whl (10.7 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.7/10.7 MB 311.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.7/10.7 MB 24.8 MB/s  0:00:00
 Downloading nvidia_cuda_nvrtc-13.0.88-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl (90.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 90.2/90.2 MB 304.9 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 90.2/90.2 MB 126.3 MB/s  0:00:00
 Downloading nvidia_cuda_runtime-13.0.96-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (2.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.2/2.2 MB 263.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.2/2.2 MB 137.6 MB/s  0:00:00
 Downloading nvidia_cufft-12.0.0.61-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (214.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 214.1/214.1 MB 258.1 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 214.1/214.1 MB 69.6 MB/s  0:00:03
 Downloading nvidia_cufile-1.15.1.6-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 232.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 140.0 MB/s  0:00:00
 Downloading nvidia_curand-10.4.0.35-py3-none-manylinux_2_27_x86_64.whl (59.5 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 59.5/59.5 MB 376.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 59.5/59.5 MB 119.3 MB/s  0:00:00
 Downloading nvidia_cusolver-12.0.4.66-py3-none-manylinux_2_27_x86_64.whl (200.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 200.9/200.9 MB 137.2 MB/s  0:00:01
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 200.9/200.9 MB 130.8 MB/s  0:00:01
 Downloading nvidia_cusparse-12.6.3.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (145.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 145.9/145.9 MB 294.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 145.9/145.9 MB 89.9 MB/s  0:00:01
 Downloading nvidia_nvjitlink-13.3.33-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl (40.7 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 40.7/40.7 MB 150.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 40.7/40.7 MB 126.0 MB/s  0:00:00
 Downloading nvidia_nvtx-13.0.85-py3-none-manylinux1_x86_64.manylinux_2_5_x86_64.whl (148 kB)
 Downloading cuda_pathfinder-1.6.1-py3-none-any.whl (60 kB)
 Downloading networkx-3.6.1-py3-none-any.whl (2.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 276.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 161.3 MB/s  0:00:00
 Downloading sympy-1.14.0-py3-none-any.whl (6.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 338.6 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 153.8 MB/s  0:00:00
 Downloading mpmath-1.3.0-py3-none-any.whl (536 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 536.2/536.2 kB 72.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 536.2/536.2 kB 100.5 MB/s  0:00:00
 Downloading torchaudio-2.11.0-cp311-cp311-manylinux_2_28_x86_64.whl (1.8 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 252.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 304.1 MB/s  0:00:00
 Downloading tqdm-4.70.0-py3-none-any.whl (80 kB)
 Downloading transformers-5.15.0-py3-none-any.whl (11.7 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.7/11.7 MB 138.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.7/11.7 MB 122.1 MB/s  0:00:00
 Downloading tokenizers-0.22.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (3.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 300.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 175.8 MB/s  0:00:00
 Downloading regex-2026.7.19-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (801 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 801.4/801.4 kB 122.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 801.4/801.4 kB 156.3 MB/s  0:00:00
 Downloading safetensors-0.8.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (516 kB)
 Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
 Downloading uvicorn-0.52.3-py3-none-any.whl (79 kB)
@@ -494,14 +494,14 @@ Downloading addict-2.4.0-py3-none-any.whl (3.8 kB)
 Downloading docstring_parser-0.18.0-py3-none-any.whl (22 kB)
 Downloading einops-0.8.2-py3-none-any.whl (65 kB)
 Downloading funasr-1.4.2-py3-none-any.whl (977 kB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 977.1/977.1 kB 166.2 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 977.1/977.1 kB 139.2 MB/s  0:00:00
 Downloading hydra_core-1.3.5-py3-none-any.whl (155 kB)
 Downloading omegaconf-2.3.1-py3-none-any.whl (79 kB)
 Downloading kaldiio-2.18.1-py3-none-any.whl (29 kB)
 Downloading rapidfuzz-3.14.5-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (3.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.2/3.2 MB 321.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.2/3.2 MB 145.5 MB/s  0:00:00
 Downloading scipy-1.17.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (35.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.3/35.3 MB 385.1 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.3/35.3 MB 127.3 MB/s  0:00:00
 Downloading websockets-17.0.1-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (219 kB)
 Downloading inflect-7.5.0-py3-none-any.whl (35 kB)
 Downloading more_itertools-11.1.0-py3-none-any.whl (72 kB)
@@ -515,79 +515,79 @@ Downloading joblib-1.5.3-py3-none-any.whl (309 kB)
 Downloading lazy_loader-0.5-py3-none-any.whl (8.0 kB)
 Downloading msgpack-1.2.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (423 kB)
 Downloading numba-0.67.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (3.8 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.8/3.8 MB 130.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.8/3.8 MB 212.3 MB/s  0:00:00
 Downloading llvmlite-0.49.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (59.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 59.9/59.9 MB 199.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 59.9/59.9 MB 136.2 MB/s  0:00:00
 Downloading pooch-1.9.0-py3-none-any.whl (67 kB)
 Downloading platformdirs-4.11.3-py3-none-any.whl (23 kB)
 Downloading scikit_learn-1.9.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (9.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.3/9.3 MB 161.5 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.3/9.3 MB 150.7 MB/s  0:00:00
 Downloading narwhals-2.24.0-py3-none-any.whl (461 kB)
 Downloading soxr-1.1.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (245 kB)
 Downloading threadpoolctl-3.6.0-py3-none-any.whl (18 kB)
 Downloading matplotlib-3.11.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (10.0 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.0/10.0 MB 183.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.0/10.0 MB 98.8 MB/s  0:00:00
 Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (355 kB)
 Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
 Downloading fonttools-4.63.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.1 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1/5.1 MB 341.0 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1/5.1 MB 132.8 MB/s  0:00:00
 Downloading kiwisolver-1.5.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 123.2 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 296.1 MB/s  0:00:00
 Downloading pyparsing-3.3.2-py3-none-any.whl (122 kB)
 Downloading jmespath-0.10.0-py2.py3-none-any.whl (24 kB)
 Downloading aliyun_python_sdk_kms-2.16.5-py2.py3-none-any.whl (99 kB)
 Downloading cryptography-50.0.0-cp311-abi3-manylinux_2_34_x86_64.whl (4.7 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 332.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 161.5 MB/s  0:00:00
 Downloading pycryptodome-3.23.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.3 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.3/2.3 MB 280.7 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.3/2.3 MB 181.2 MB/s  0:00:00
 Downloading pycparser-3.0-py3-none-any.whl (48 kB)
 Downloading sentencepiece-0.2.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (1.4 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 141.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 69.4 MB/s  0:00:00
 Downloading simplejson-4.1.1-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (180 kB)
 Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
 Downloading spaces-0.51.1-py3-none-any.whl (111 kB)
 Downloading tensorboardx-2.6.5-py3-none-any.whl (87 kB)
 Downloading protobuf-7.35.1-cp310-abi3-manylinux2014_x86_64.whl (327 kB)
 Downloading tiktoken-0.14.0-cp311-cp311-manylinux_2_28_x86_64.whl (1.2 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 185.3 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 286.9 MB/s  0:00:00
 Downloading torch_complex-0.4.4-py3-none-any.whl (9.1 kB)
 Downloading torchcodec-0.16.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (9.5 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.5/9.5 MB 269.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9.5/9.5 MB 57.5 MB/s  0:00:00
 Downloading umap_learn-0.5.12-py3-none-any.whl (91 kB)
 Downloading pynndescent-0.6.0-py3-none-any.whl (73 kB)
 Downloading wetext-0.1.6-py3-none-any.whl (2.9 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.9/2.9 MB 145.4 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.9/2.9 MB 148.9 MB/s  0:00:00
 Downloading contractions-0.1.73-py2.py3-none-any.whl (8.7 kB)
 Downloading textsearch-0.0.24-py2.py3-none-any.whl (7.6 kB)
 Downloading anyascii-0.3.3-py3-none-any.whl (345 kB)
 Downloading kaldifst-1.8.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (1.5 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.5/1.5 MB 173.8 MB/s  0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.5/1.5 MB 214.4 MB/s  0:00:00
 Downloading pyahocorasick-2.3.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (113 kB)
 Downloading xxhash-4.0.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (261 kB)
 Building wheels for collected packages: argbind, antlr4-python3-runtime, jieba, oss2, aliyun-python-sdk-core, crcmod
   Building wheel for argbind (pyproject.toml): started
   Building wheel for argbind (pyproject.toml): finished with status 'done'
-  Created wheel for argbind: filename=argbind-0.3.9-py2.py3-none-any.whl size=11817 sha256=d2306fcb95d5bc04b0894009cdf07c97a62a72a79a5237893e6f472bb86d9fd9
+  Created wheel for argbind: filename=argbind-0.3.9-py2.py3-none-any.whl size=11817 sha256=10fe4299e074623d01bd7d6f55e6efbb06f8cdab0e73ffb04bd4809c7c260624
   Stored in directory: /home/runner/.cache/pip/wheels/36/3a/34/e858fa3cf5f8c33a040734efcc17e95cb5cfd99c256a7fcecf
   Building wheel for antlr4-python3-runtime (pyproject.toml): started
   Building wheel for antlr4-python3-runtime (pyproject.toml): finished with status 'done'
-  Created wheel for antlr4-python3-runtime: filename=antlr4_python3_runtime-4.9.3-py3-none-any.whl size=144590 sha256=32bb8b060fb41c1abdf70924e0f6d04a60b812c2ba20790289cb711f294e1267
+  Created wheel for antlr4-python3-runtime: filename=antlr4_python3_runtime-4.9.3-py3-none-any.whl size=144590 sha256=c93f2c99944370f9839b49c46e965eb701fff4f2a628461d5e86e055b1c74794
   Stored in directory: /home/runner/.cache/pip/wheels/1a/97/32/461f837398029ad76911109f07047fde1d7b661a147c7c56d1
   Building wheel for jieba (pyproject.toml): started
   Building wheel for jieba (pyproject.toml): finished with status 'done'
-  Created wheel for jieba: filename=jieba-0.42.1-py3-none-any.whl size=19314509 sha256=6f45bc6624ce2a2b167dbb1672fb5e237cd966f508b9c3ee54f03b15341e3520
+  Created wheel for jieba: filename=jieba-0.42.1-py3-none-any.whl size=19314509 sha256=6f266c7595bf05b28ce9481fb142b24f9fbc1cd92794e182899bb23109b63b24
   Stored in directory: /home/runner/.cache/pip/wheels/ac/60/cf/538a1f183409caf1fc136b5d2c2dee329001ef6da2c5084bef
   Building wheel for oss2 (pyproject.toml): started
   Building wheel for oss2 (pyproject.toml): finished with status 'done'
-  Created wheel for oss2: filename=oss2-2.19.1-py3-none-any.whl size=124037 sha256=00a50cb5d02b8f9157ece3f3279a70ad59257777a0b9b8abde7f6c0d1b1df144
+  Created wheel for oss2: filename=oss2-2.19.1-py3-none-any.whl size=124037 sha256=dc90523f8bda88d55aeb3a2df9ce41ff7a5e91028be46c18fd1cdf2f123358a1
   Stored in directory: /home/runner/.cache/pip/wheels/56/27/a3/50e7db0dd68810d9d4e383a547b88b4a5b1eaae58e63c1d64a
   Building wheel for aliyun-python-sdk-core (pyproject.toml): started
   Building wheel for aliyun-python-sdk-core (pyproject.toml): finished with status 'done'
-  Created wheel for aliyun-python-sdk-core: filename=aliyun_python_sdk_core-2.16.0-py3-none-any.whl size=535417 sha256=13939dc961a9232f1c55e6971236797d6095b7cafb4f71d8bd3199061aac7953
+  Created wheel for aliyun-python-sdk-core: filename=aliyun_python_sdk_core-2.16.0-py3-none-any.whl size=535417 sha256=0ec476187df4e2f06eabf24d6bae02ad0e9338fd42f881886fbad000faeed39b
   Stored in directory: /home/runner/.cache/pip/wheels/2b/9a/95/60f111d2a488c5f7f7ed2a96ce407ea57ec7393ddfdec8c956
   Building wheel for crcmod (pyproject.toml): started
   Building wheel for crcmod (pyproject.toml): finished with status 'done'
-  Created wheel for crcmod: filename=crcmod-1.7-cp311-cp311-linux_x86_64.whl size=31718 sha256=fbbd176e96d416d944f2355fdc8b577c3bf76f78537b19d992d358319d0a1305
+  Created wheel for crcmod: filename=crcmod-1.7-cp311-cp311-linux_x86_64.whl size=31717 sha256=ec6e9b4e53149c6932b88cceb0fbc1627d440d3241789e7a35acc109acbef80d
   Stored in directory: /home/runner/.cache/pip/wheels/23/94/7a/8cb7d14597e6395ce969933f01aed9ea8fa5f5b4d4c8a61e99
 Successfully built argbind antlr4-python3-runtime jieba oss2 aliyun-python-sdk-core crcmod
 Installing collected packages: torchaudio, sortedcontainers, pytz, pydub, nvidia-cusparselt-cu13, mpmath, jieba, jamo, jaconv, cuda-toolkit, crcmod, brotli, antlr4-python3-runtime, addict, xxhash, websockets, urllib3, typing-extensions, triton, tqdm, torchcodec, tomlkit, threadpoolctl, sympy, six, simplejson, shellingham, sentencepiece, semantic-version, safetensors, regex, rapidfuzz, pyyaml, python-multipart, pyparsing, pygments, pycryptodome, pycparser, pyarrow, pyahocorasick, protobuf, propcache, platformdirs, pillow, packaging, orjson, nvidia-nvtx, nvidia-nvshmem-cu13, nvidia-nvjitlink, nvidia-nccl-cu13, nvidia-curand, nvidia-cufile, nvidia-cuda-runtime, nvidia-cuda-nvrtc, nvidia-cuda-cupti, numpy, networkx, narwhals, multidict, msgpack, more_itertools, mdurl, markupsafe, llvmlite, kiwisolver, kaldifst, joblib, jmespath, idna, hf-xet, h11, groovy, fsspec, frozenlist, fonttools, filelock, einops, docstring-parser, dill, decorator, cycler, cuda-pathfinder, click, charset_normalizer, certifi, audioread, attrs, anyascii, annotated-types, annotated-doc, aiohappyeyeballs, yarl, uvicorn, typing-inspection, typeguard, torch_complex, textsearch, tensorboardX, soxr, scipy, requests, python-dateutil, pydantic-core, omegaconf, nvidia-cusparse, nvidia-cufft, nvidia-cublas, numba, multiprocess, markdown-it-py, lazy_loader, kaldiio, jinja2, httpcore, cuda-bindings, contourpy, cffi, argbind, anyio, aiosignal, tiktoken, starlette, soundfile, scikit-learn, rich, pydantic, pooch, pandas, nvidia-cusolver, nvidia-cudnn-cu13, modelscope-hub, matplotlib, inflect, hydra-core, httpx, cryptography, contractions, aiohttp, wetext, typer, safehttpx, pynndescent, modelscope, librosa, huggingface-hub, fastapi, aliyun-python-sdk-core, umap_learn, torch, tokenizers, gradio-client, datasets, aliyun-python-sdk-kms, transformers, oss2, hf-gradio, gradio, funasr, spaces, voxcpm
