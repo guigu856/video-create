@@ -20,22 +20,16 @@ jobs:
           git add output/douyin-hq/run_id.txt
           git commit -m 'chore: expose douyin hq run id [skip ci]' || true
           git push || true
-      - name: Resolve and download main H264 URL
+      - name: Download already-resolved main video URL
         run: |
           python - <<'PY'
-          import json, urllib.parse, urllib.request
+          import urllib.request
           from pathlib import Path
-          share='https://v.douyin.com/4GgQdUocaRI/'
           ua='Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1'
+          u='https://v3-dy-o.zjcdn.com/c7dc140a0186ea4ccfe7e8a41343938f/6a84db57/video/tos/cn/tos-cn-v-0015c001/oIGD03FQETejIMFAUG5AKr6fTyr7CfB8zIBzq1/?a=0&ch=0&cr=4&dr=0&lr=unwatermarked&net=5&cd=0%7C0%7C0%7C4&cv=1&br=8977&bt=8977&cs=0&ds=4&ft=4zvy_jw~9wUxRYgWzM6~OiXnumLjBICttPskag3-I_kaY3&mime_type=video_mp4&qs=13&rc=M3Zvd285cnF3PDMzNGkzM0BpM3Zvd285cnF3PDMzNGkzM0BxaTVoMmRzYHBhLS1kLTBzYSNxaTVoMmRzYHBhLS1kLTBzcw%3D%3D&btag=80000e00028000&cc=1f&cquery=106H&dy_q=1787088087&l=202608190521275C76ACB68B69D5CC0BC0%2C202608190521275C76ACB68B69D5CC0BC0&req_cdn_type='
           out=Path('output/douyin-hq'); out.mkdir(parents=True,exist_ok=True)
-          api='https://api.bugpk.com/api/douyin?url='+urllib.parse.quote(share,safe='')
-          req=urllib.request.Request(api,headers={'User-Agent':ua,'Accept':'application/json,*/*','Referer':'https://www.douyin.com/'})
-          with urllib.request.urlopen(req,timeout=30) as r: data=json.load(r)
-          (out/'bugpk.json').write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
-          u=data['data']['url']
-          print('video url',u)
-          req=urllib.request.Request(u,headers={'User-Agent':ua,'Referer':'https://www.douyin.com/','Accept':'*/*'})
           dest=out/'梦马思考_拉普拉斯变换_HQ.mp4'
+          req=urllib.request.Request(u,headers={'User-Agent':ua,'Referer':'https://www.douyin.com/','Accept':'*/*'})
           with urllib.request.urlopen(req,timeout=120) as r, open(dest,'wb') as f:
             while True:
               b=r.read(1024*1024)
