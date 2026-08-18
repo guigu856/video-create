@@ -1,0 +1,40 @@
+name: tmp-ref-laplace-analysis
+on:
+  push:
+    branches: [tmp/ref-laplace-analysis-20260819]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish run id
+        run: |
+          mkdir -p output/ref-laplace
+          echo "$GITHUB_RUN_ID" > output/ref-laplace/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/ref-laplace/run_id.txt
+          git commit -m 'chore: expose reference run id [skip ci]' || true
+          git push || true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install downloader dependencies
+        run: |
+          python -m pip install -q --upgrade pip
+          python -m pip install -q 'playwright>=1.60,<2' 'httpx>=0.27,<1'
+          python -m playwright install --with-deps chromium
+      - name: Download reference video
+        run: |
+          python -m components.video_download '2.87 复制打开抖音，看看【梦马思考的作品】走不通的路只能硬熬？拉普拉斯变换：换个空间和方向试... https://v.douyin.com/4GgQdUocaRI/ :4pm y@g.bA 07/10 SYm:/' --output-dir output/ref-laplace | tee output/ref-laplace/result.json
+          ls -lah output/ref-laplace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: laplace-reference-video
+          path: output/ref-laplace/
+          retention-days: 3
