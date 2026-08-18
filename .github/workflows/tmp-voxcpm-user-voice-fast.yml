@@ -2,6 +2,9 @@ name: tmp-voxcpm-user-voice-fast
 on:
   push:
     branches: [tmp/voxcpm-user-voice-fast-20260818]
+concurrency:
+  group: tmp-voxcpm-user-voice-fast
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
@@ -23,12 +26,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Download voice references
+      - name: Decode voice references
         run: |
           mkdir -p tmp/voice_refs
-          curl -fL 'https://raw.githubusercontent.com/guigu856/video-create/65ed8c27fce1481a6097a80b6923ad79620f6420/tmp/voice_refs/question.mp3' -o tmp/voice_refs/question.mp3
-          curl -fL 'https://raw.githubusercontent.com/guigu856/video-create/65ed8c27fce1481a6097a80b6923ad79620f6420/tmp/voice_refs/explain.mp3' -o tmp/voice_refs/explain.mp3
-          ls -lh tmp/voice_refs
+          base64 -d tmp/voice_refs/question4.b64 > tmp/voice_refs/question.mp3
+          base64 -d tmp/voice_refs/explain4.b64 > tmp/voice_refs/explain.mp3
+          test $(stat -c%s tmp/voice_refs/question.mp3) -gt 8000
+          test $(stat -c%s tmp/voice_refs/explain.mp3) -gt 8000
+          ls -lh tmp/voice_refs/question.mp3 tmp/voice_refs/explain.mp3
       - name: Install VoxCPM
         run: |
           python -m pip install -U pip
