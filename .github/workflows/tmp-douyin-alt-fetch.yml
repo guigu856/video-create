@@ -1,0 +1,115 @@
+name: tmp-douyin-alt-fetch
+on:
+  push:
+    branches: [tmp/douyin-alt-fetch-20260819]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish run id
+        run: |
+          mkdir -p output/douyin-alt
+          echo "$GITHUB_RUN_ID" > output/douyin-alt/run_id.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add output/douyin-alt/run_id.txt
+          git commit -m 'chore: expose douyin alt run id [skip ci]' || true
+          git push || true
+      - name: Resolve and download through alternate parsers
+        run: |
+          python - <<'PY'
+          import json, os, urllib.parse, urllib.request, ssl, time
+          from pathlib import Path
+
+          share='https://v.douyin.com/4GgQdUocaRI/'
+          outdir=Path('output/douyin-alt'); outdir.mkdir(parents=True, exist_ok=True)
+          ua='Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1'
+          endpoints=[
+            ('xinyew','https://api.xinyew.cn/api/douyinjx?url='),
+            ('mxin','https://api.mxin.moe/api/v1/douyin?url='),
+            ('devtool','https://www.devtool.top/api/douyin/parse?url='),
+            ('bugpk','https://api.bugpk.com/api/douyin?url='),
+            ('jxcxin','https://apis.jxcxin.cn/api/douyin?url='),
+            ('777nx','https://api.777nx.cn/api/douyin/?url='),
+          ]
+          ctx=ssl.create_default_context()
+          results=[]
+          def fetch_json(name, base):
+            url=base+urllib.parse.quote(share,safe='')
+            req=urllib.request.Request(url, headers={'User-Agent':ua,'Accept':'application/json,text/plain,*/*','Referer':'https://www.douyin.com/'})
+            try:
+              with urllib.request.urlopen(req,timeout=25,context=ctx) as r:
+                raw=r.read()
+              txt=raw.decode('utf-8','replace')
+              try: data=json.loads(txt)
+              except Exception: data={'_raw':txt[:4000]}
+              results.append({'name':name,'ok':True,'url':url,'data':data})
+              return data
+            except Exception as e:
+              results.append({'name':name,'ok':False,'url':url,'error':repr(e)})
+              return None
+          def walk(x, path=''):
+            vals=[]
+            if isinstance(x,dict):
+              for k,v in x.items(): vals += walk(v, path+'.'+str(k))
+            elif isinstance(x,list):
+              for i,v in enumerate(x): vals += walk(v, path+f'[{i}]')
+            elif isinstance(x,str) and x.startswith(('http://','https://')):
+              vals.append((path,x))
+            return vals
+          def score(path,u):
+            s=0; p=(path+' '+u).lower()
+            for good,w in [('video',7),('play',7),('url',2),('nwm',8),('download',4),('mp4',8)]:
+              if good in p: s+=w
+            for bad,w in [('cover',-10),('avatar',-10),('music',-10),('.jpg',-12),('.jpeg',-12),('.png',-12),('.webp',-12),('.mp3',-12)]:
+              if bad in p: s+=w
+            return s
+          all_candidates=[]
+          for name,base in endpoints:
+            data=fetch_json(name,base)
+            if data is not None:
+              for path,u in walk(data): all_candidates.append((score(path,u),name,path,u))
+          all_candidates=sorted(set(all_candidates), reverse=True)
+          (outdir/'parser_results.json').write_text(json.dumps({'responses':results,'candidates':all_candidates[:100]},ensure_ascii=False,indent=2),encoding='utf-8')
+          print('candidates',len(all_candidates))
+          for item in all_candidates[:30]: print(item[:3],item[3][:220])
+          errors=[]
+          for sc,name,path,u in all_candidates:
+            if sc < 2: continue
+            try:
+              req=urllib.request.Request(u,headers={'User-Agent':ua,'Referer':'https://www.douyin.com/','Accept':'*/*'})
+              with urllib.request.urlopen(req,timeout=45,context=ctx) as r:
+                ct=(r.headers.get('content-type') or '').lower()
+                first=r.read(1024*1024)
+                if ('video' not in ct and len(first)<200000):
+                  raise RuntimeError(f'not video ct={ct} first={len(first)}')
+                dest=outdir/'梦马思考_拉普拉斯变换_参考视频.mp4'
+                with open(dest,'wb') as f:
+                  f.write(first)
+                  while True:
+                    chunk=r.read(1024*1024)
+                    if not chunk: break
+                    f.write(chunk)
+              size=dest.stat().st_size
+              if size<500000: raise RuntimeError(f'too small {size}')
+              print('SUCCESS',name,path,'size',size,'url',u)
+              (outdir/'selected.json').write_text(json.dumps({'parser':name,'path':path,'url':u,'size':size},ensure_ascii=False,indent=2),encoding='utf-8')
+              raise SystemExit(0)
+            except SystemExit: raise
+            except Exception as e:
+              errors.append({'parser':name,'path':path,'url':u,'error':repr(e)})
+              print('candidate failed',name,path,repr(e))
+          (outdir/'download_errors.json').write_text(json.dumps(errors,ensure_ascii=False,indent=2),encoding='utf-8')
+          raise SystemExit('no downloadable video candidate')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: douyin-alt-reference
+          path: output/douyin-alt/
+          retention-days: 3
