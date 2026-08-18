@@ -17,6 +17,7 @@ jobs:
       - name: Publish run id
         run: |
           mkdir -p output/voxcpm-user-voice-fast
+          rm -f output/voxcpm-user-voice-fast/*.wav output/voxcpm-user-voice-fast/status.txt
           echo "$GITHUB_RUN_ID" > output/voxcpm-user-voice-fast/run_id.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -26,14 +27,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Decode voice references
+      - name: Reconstruct voice references
         run: |
-          mkdir -p tmp/voice_refs
-          base64 -d tmp/voice_refs/question4.b64 > tmp/voice_refs/question.mp3
-          base64 -d tmp/voice_refs/explain4.b64 > tmp/voice_refs/explain.mp3
-          test $(stat -c%s tmp/voice_refs/question.mp3) -gt 8000
-          test $(stat -c%s tmp/voice_refs/explain.mp3) -gt 8000
-          ls -lh tmp/voice_refs/question.mp3 tmp/voice_refs/explain.mp3
+          cat tmp/voice_refs/chunks/q0.txt tmp/voice_refs/chunks/q1.txt tmp/voice_refs/chunks/q2.txt | base64 -d > /tmp/question.mp3
+          cat tmp/voice_refs/chunks/e0.txt tmp/voice_refs/chunks/e1.txt tmp/voice_refs/chunks/e2.txt | base64 -d > /tmp/explain.mp3
+          test "$(stat -c%s /tmp/question.mp3)" = "8432"
+          test "$(stat -c%s /tmp/explain.mp3)" = "8432"
+          echo 'c282363b94f6be2c410b4ca8d990917d5dcda50ef858eade370607e7d11b12e6  /tmp/question.mp3' | sha256sum -c -
+          echo 'f0acbc41522eead2775e8acb518b37e65430eaf73b5b3bed19e34b416ff66818  /tmp/explain.mp3' | sha256sum -c -
       - name: Install VoxCPM
         run: |
           python -m pip install -U pip
@@ -55,45 +56,19 @@ jobs:
                   data, sr = sf.read(str(path), dtype='float32', always_2d=True)
                   return torch.from_numpy(np.asarray(data).T.copy()), sr
               torchaudio.load = sf_load
-              for src, dst in [
-                  ('tmp/voice_refs/question.mp3', 'tmp/voice_refs/question.wav'),
-                  ('tmp/voice_refs/explain.mp3', 'tmp/voice_refs/explain.wav'),
-              ]:
+              for src, dst in [('/tmp/question.mp3','/tmp/question.wav'),('/tmp/explain.mp3','/tmp/explain.wav')]:
                   data, sr = sf.read(src, dtype='float32', always_2d=True)
                   if data.shape[1] > 1:
                       data = data.mean(axis=1, keepdims=True)
                   sf.write(dst, data, sr, subtype='PCM_16')
               from voxcpm import VoxCPM
               status.write_text('LOADING_MODEL', encoding='utf-8')
-              model = VoxCPM.from_pretrained(
-                  'openbmb/VoxCPM-0.5B',
-                  load_denoiser=False,
-                  optimize=False,
-                  device='cpu',
-              )
+              model = VoxCPM.from_pretrained('openbmb/VoxCPM-0.5B', load_denoiser=False, optimize=False, device='cpu')
               status.write_text('GENERATING_QUESTION', encoding='utf-8')
-              q = model.generate(
-                  text='如果把今天每一分钟都安排好，事情就一定会更顺利，对吗？',
-                  reference_wav_path='tmp/voice_refs/question.wav',
-                  cfg_value=2.0,
-                  inference_timesteps=4,
-                  seed=41,
-                  normalize=False,
-                  denoise=False,
-                  retry_badcase=False,
-              )
+              q = model.generate(text='如果把今天每一分钟都安排好，事情就一定会更顺利，对吗？', reference_wav_path='/tmp/question.wav', cfg_value=2.0, inference_timesteps=4, seed=41, normalize=False, denoise=False, retry_badcase=False)
               sf.write('output/voxcpm-user-voice-fast/提问_克隆试听.wav', q, model.tts_model.sample_rate)
               status.write_text('GENERATING_EXPLAIN', encoding='utf-8')
-              e = model.generate(
-                  text='当然不对。真正的问题不是你不够努力，而是你的计划没有给意外留下空间。',
-                  reference_wav_path='tmp/voice_refs/explain.wav',
-                  cfg_value=2.0,
-                  inference_timesteps=4,
-                  seed=42,
-                  normalize=False,
-                  denoise=False,
-                  retry_badcase=False,
-              )
+              e = model.generate(text='当然不对。真正的问题不是你不够努力，而是你的计划没有给意外留下空间。', reference_wav_path='/tmp/explain.wav', cfg_value=2.0, inference_timesteps=4, seed=42, normalize=False, denoise=False, retry_badcase=False)
               sf.write('output/voxcpm-user-voice-fast/解释_克隆试听.wav', e, model.tts_model.sample_rate)
               status.write_text('SUCCESS', encoding='utf-8')
           except Exception:
@@ -104,9 +79,9 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git pull --rebase || true
           git add output/voxcpm-user-voice-fast
           git commit -m 'chore: fast VoxCPM user voice result [skip fast clone]' || true
+          git pull --rebase || true
           git push || true
       - name: Upload artifact
         if: always()
