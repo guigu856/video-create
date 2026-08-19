@@ -9,13 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download exact Q1 audio
+      - name: Download corrected Q1 audio
         run: |
           mkdir -p output/q1
           python - <<'PY'
           import urllib.request
-          url='https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/1e623345df6c4c4eb93784816fd8d61c/id=ccf6cc92-2876-4e84-a11e-c62bdfc33671.wav'
-          urllib.request.urlretrieve(url,'output/q1/角色A_Q1_最终.wav')
+          url='https://resource2.heygen.ai/text_to_speech/63ecaa32595043c7b416b4f407a482c2/1e623345df6c4c4eb93784816fd8d61c/id=928cddc2-35ea-4a29-9be7-b5bd8d63837c.wav'
+          urllib.request.urlretrieve(url,'output/q1/角色A_Q1_正确音色_0.85x.wav')
           PY
           echo "$GITHUB_RUN_ID" > output/q1/run_id.txt
           git config user.name 'github-actions[bot]'
@@ -25,6 +25,6 @@ jobs:
           git push || true
       - uses: actions/upload-artifact@v4
         with:
-          name: q1-final-audio
-          path: output/q1/角色A_Q1_最终.wav
+          name: q1-corrected-audio
+          path: output/q1/角色A_Q1_正确音色_0.85x.wav
           retention-days: 3
